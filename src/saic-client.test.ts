@@ -177,6 +177,26 @@ describe('SaicApiClient vehicle status', () => {
 		expect(new Headers(requestInit?.headers).get('blade-auth')).to.equal('test-access-token');
 	});
 
+	it('logs response metadata and field names without logging status values', async () => {
+		const debugMessages: string[] = [];
+		const client = new SaicApiClient(
+			() =>
+				Promise.resolve(
+					new Response('{"code":0,"data":{"basicVehicleStatus":{"batteryVoltage":142,"lockStatus":1}}}'),
+				),
+			Date.now,
+			undefined,
+			message => debugMessages.push(message),
+		);
+
+		await client.getVehicleStatus(options, 'test-access-token', 'LSJWH4095RN166487');
+
+		expect(debugMessages.some(message => message.includes('SAIC code 0'))).to.equal(true);
+		expect(debugMessages.some(message => message.includes('timeout 5000ms'))).to.equal(true);
+		expect(debugMessages.some(message => message.includes('batteryVoltage, lockStatus'))).to.equal(true);
+		expect(debugMessages.join('\n')).not.to.contain('142');
+	});
+
 	it('rejects status replies without basicVehicleStatus', async () => {
 		const client = new SaicApiClient(() => Promise.resolve(new Response('{"code":0,"data":{}}')));
 

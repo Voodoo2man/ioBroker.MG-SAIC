@@ -61,7 +61,7 @@ class MgSaic extends utils.Adapter {
 		}
 
 		try {
-			this.client = new SaicApiClient();
+			this.client = new SaicApiClient(undefined, Date.now, undefined, message => this.log.debug(message));
 			this.loginOptions = {
 				...region,
 				accountType: config.accountType as 'email' | 'phone',
@@ -101,24 +101,36 @@ class MgSaic extends utils.Adapter {
 					break;
 				}
 				try {
-					const status = await this.client.getVehicleStatus(this.loginOptions, this.accessToken, vehicle.vin);
-					await this.createVehicleStatusObjects(vehicle.vin, status);
-				} catch (error) {
-					const details = error instanceof Error ? error.message : 'Unknown error';
-					statusErrors.push(`Vehicle status request failed for ${vehicle.vin}: ${details}`);
-					this.log.warn(`Could not retrieve current status for vehicle ${vehicle.vin}: ${details}`);
-				}
-				try {
+					this.log.debug(`Refreshing cached status for ${vehicle.vin}`);
 					const status = await this.client.getCachedVehicleStatus(
 						this.loginOptions,
 						this.accessToken,
 						vehicle.vin,
 					);
+					this.log.debug(
+						`Received cached status for ${vehicle.vin}: ${Object.keys(status.basicVehicleStatus).length} basic fields, statusTime ${status.statusTime ?? 'missing'}, onlineStatus ${status.onlineStatus ?? 'missing'}`,
+					);
 					await this.createVehicleStatusObjects(vehicle.vin, status, 'cachedStatus', 'SAIC cached status');
+					this.log.debug(`Created/updated cached status objects for ${vehicle.vin}`);
 				} catch (error) {
 					const details = error instanceof Error ? error.message : 'Unknown error';
 					statusErrors.push(`Cached vehicle status request failed for ${vehicle.vin}: ${details}`);
+					this.log.debug(`Cached status refresh or object update failed for ${vehicle.vin}: ${details}`);
 					this.log.warn(`Could not retrieve cached status for vehicle ${vehicle.vin}: ${details}`);
+				}
+				try {
+					this.log.debug(`Refreshing live status for ${vehicle.vin}`);
+					const status = await this.client.getVehicleStatus(this.loginOptions, this.accessToken, vehicle.vin);
+					this.log.debug(
+						`Received live status for ${vehicle.vin}: ${Object.keys(status.basicVehicleStatus).length} basic fields, statusTime ${status.statusTime ?? 'missing'}`,
+					);
+					await this.createVehicleStatusObjects(vehicle.vin, status);
+					this.log.debug(`Created/updated live status objects for ${vehicle.vin}`);
+				} catch (error) {
+					const details = error instanceof Error ? error.message : 'Unknown error';
+					statusErrors.push(`Vehicle status request failed for ${vehicle.vin}: ${details}`);
+					this.log.debug(`Live status refresh or object update failed for ${vehicle.vin}: ${details}`);
+					this.log.warn(`Could not retrieve current status for vehicle ${vehicle.vin}: ${details}`);
 				}
 			}
 			if (!this.stopping) {
@@ -157,6 +169,7 @@ class MgSaic extends utils.Adapter {
 		if (status.onlineStatus !== undefined) {
 			values.onlineStatus = status.onlineStatus;
 		}
+		this.log.debug(`Writing ${Object.keys(values).length} values under ${statusId}`);
 		for (const [key, value] of Object.entries(values)) {
 			const group = getVehicleStatusGroup(key);
 			const groupId = `${statusId}.${group}`;

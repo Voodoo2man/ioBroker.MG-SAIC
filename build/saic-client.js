@@ -72,12 +72,15 @@ class SaicApiClient {
    * @param fetchFunction HTTP transport, injectable for tests.
    * @param now Clock function returning milliseconds since epoch.
    * @param wait Delay function used between retry attempts.
+   * @param debug Optional debug logger that receives status diagnostics without response values.
    */
-  constructor(fetchFunction = fetch, now = Date.now, wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds))) {
+  constructor(fetchFunction = fetch, now = Date.now, wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)), debug = () => void 0) {
     this.fetchFunction = fetchFunction;
     this.now = now;
     this.wait = wait;
+    this.debug = debug;
   }
+  debug;
   /**
    * Sign in and return a validated access token.
    *
@@ -270,13 +273,17 @@ class SaicApiClient {
     let lastError;
     for (let attempt = 1; attempt <= 5; attempt++) {
       try {
+        this.debug(`Live status request for ${vin}: attempt ${attempt}/5`);
         return await this.requestVehicleStatus(options, accessToken, vin, "/vehicle/status", true);
       } catch (error) {
         if (!(error instanceof RetryableVehicleStatusError)) {
+          this.debug(`Live status request for ${vin} failed without retry: ${this.errorMessage(error)}`);
           throw error;
         }
         lastError = error;
+        this.debug(`Live status request for ${vin} failed on attempt ${attempt}/5: ${error.message}`);
         if (attempt < 5) {
+          this.debug(`Retrying live status request for ${vin} in 15 seconds`);
           await this.wait(15e3);
         }
       }
@@ -291,7 +298,11 @@ class SaicApiClient {
    * @param vin Vehicle identification number.
    */
   async getCachedVehicleStatus(options, accessToken, vin) {
+    this.debug(`Cached status request for ${vin}`);
     return this.requestVehicleStatus(options, accessToken, vin, "/vehicle/status/cache", false);
+  }
+  errorMessage(error) {
+    return error instanceof Error ? error.message : "Unknown error";
   }
   /**
    * Send a status request and normalize its response.
@@ -303,7 +314,7 @@ class SaicApiClient {
    * @param useEventId Whether this request asks the vehicle for a live response.
    */
   async requestVehicleStatus(options, accessToken, vin, requestPath, useEventId) {
-    var _a;
+    var _a, _b;
     const timestamp = String(this.now());
     const contentType = "application/json";
     const query = new URLSearchParams({
@@ -336,6 +347,7 @@ class SaicApiClient {
     const requestUrl = new URL(`${requestPath.replace(/^\/+/, "")}?${query.toString()}`, baseUrl);
     const deadline = Date.now() + (useEventId ? 3e4 : 15e3);
     let eventId = "0";
+    let requestCount = 0;
     let initialTimeoutRetried = false;
     let envelope;
     let responseHeaders;
@@ -345,16 +357,27 @@ class SaicApiClient {
         headers["event-id"] = eventId;
       }
       let response;
+      let requestStartedAt = Date.now();
       try {
+        requestCount++;
+        const requestTimeoutMs = Math.max(1, Math.min(useEventId ? 5e3 : 15e3, deadline - Date.now()));
+        requestStartedAt = Date.now();
+        this.debug(
+          `GET ${requestPath} for ${vin}, request ${requestCount}, timeout ${requestTimeoutMs}ms, event-id ${useEventId ? eventId : "none"}`
+        );
         response = await this.fetchFunction(requestUrl, {
           method: "GET",
           headers,
-          signal: AbortSignal.timeout(
-            Math.max(1, Math.min(useEventId ? 5e3 : 15e3, deadline - Date.now()))
-          )
+          signal: AbortSignal.timeout(requestTimeoutMs)
         });
+        this.debug(
+          `GET ${requestPath} for ${vin} received response headers after ${Date.now() - requestStartedAt}ms`
+        );
       } catch (error) {
         const details = error instanceof Error ? error.message : "Unknown network error";
+        this.debug(
+          `GET ${requestPath} for ${vin} failed after ${Date.now() - requestStartedAt}ms before response: ${details}`
+        );
         throw new RetryableVehicleStatusError(
           `SAIC vehicle status request failed before a response was received: ${details}`
         );
@@ -364,8 +387,12 @@ class SaicApiClient {
         responseText = await response.text();
       } catch (error) {
         const details = error instanceof Error ? error.message : "Unknown network error";
+        this.debug(`GET ${requestPath} for ${vin} response body read failed: ${details}`);
         throw new RetryableVehicleStatusError(`SAIC vehicle status response could not be read: ${details}`);
       }
+      this.debug(
+        `GET ${requestPath} for ${vin} returned HTTP ${response.status}, ${responseText.length} response characters`
+      );
       if (!response.ok) {
         const ErrorType = response.status === 429 || response.status >= 500 ? RetryableVehicleStatusError : Error;
         throw new ErrorType(`SAIC vehicle status failed with HTTP status ${response.status}`);
@@ -376,10 +403,14 @@ class SaicApiClient {
       try {
         envelope = JSON.parse(decodedBody);
       } catch {
+        this.debug(`GET ${requestPath} for ${vin} returned invalid JSON`);
         throw new Error("SAIC vehicle status returned an invalid response");
       }
       responseHeaders = response.headers;
       const nextEventId = response.headers.get("event-id");
+      this.debug(
+        `GET ${requestPath} for ${vin} returned SAIC code ${String(envelope.code)}, data keys: ${Object.keys((_a = envelope.data) != null ? _a : {}).join(", ") || "none"}, next event-id: ${nextEventId != null ? nextEventId : "none"}`
+      );
       if (useEventId && Number(envelope.code) === 0 && envelope.data === void 0) {
         if (Date.now() >= deadline) {
           throw new Error("SAIC vehicle status timed out while waiting for vehicle data");
@@ -409,23 +440,34 @@ class SaicApiClient {
     if (Number(envelope.code) !== 0) {
       throw new Error(envelope.message || "SAIC vehicle status request was rejected");
     }
-    if (!((_a = envelope.data) == null ? void 0 : _a.basicVehicleStatus) || typeof envelope.data.basicVehicleStatus !== "object" || Array.isArray(envelope.data.basicVehicleStatus)) {
+    if (!((_b = envelope.data) == null ? void 0 : _b.basicVehicleStatus) || typeof envelope.data.basicVehicleStatus !== "object" || Array.isArray(envelope.data.basicVehicleStatus)) {
       const responseKeys = Object.keys(envelope).join(", ") || "none";
       const responseEventId = useEventId ? responseHeaders.get("event-id") : null;
       const dataType = envelope.data === null ? "null" : Array.isArray(envelope.data) ? "array" : typeof envelope.data;
       const dataKeys = envelope.data && typeof envelope.data === "object" && !Array.isArray(envelope.data) ? Object.keys(envelope.data).join(", ") || "none" : "unavailable";
+      this.debug(
+        `GET ${requestPath} for ${vin} status shape invalid: code ${String(envelope.code)}, data type ${dataType}, data keys ${dataKeys}`
+      );
       throw new Error(
         `SAIC vehicle status response did not contain basic status data (code: ${String(envelope.code)}, response keys: ${responseKeys}, data type: ${dataType}, data keys: ${dataKeys}${responseEventId ? `, event-id: ${responseEventId}` : ""})`
       );
     }
     const rawStatus = envelope.data.basicVehicleStatus;
     const basicVehicleStatus = {};
+    const acceptedFields = [];
+    const ignoredFields = [];
     for (const field of vehicleStatusFields) {
       const value = rawStatus[field];
       if (typeof value === "number" && Number.isFinite(value) && value !== -128) {
         basicVehicleStatus[field] = value;
+        acceptedFields.push(field);
+      } else if (value !== void 0) {
+        ignoredFields.push(field);
       }
     }
+    const unknownFields = Object.keys(rawStatus).filter(
+      (field) => !vehicleStatusFields.includes(field)
+    );
     const gpsPosition = envelope.data.gpsPosition;
     if (gpsPosition && typeof gpsPosition === "object" && !Array.isArray(gpsPosition)) {
       const wayPoint = gpsPosition.wayPoint;
@@ -433,9 +475,13 @@ class SaicApiClient {
         const speed = wayPoint.speed;
         if (typeof speed === "number" && Number.isFinite(speed) && speed !== -128) {
           basicVehicleStatus.speed = speed;
+          acceptedFields.push("speed");
         }
       }
     }
+    this.debug(
+      `GET ${requestPath} for ${vin} parsed ${acceptedFields.length} status fields [${acceptedFields.join(", ")}]; ignored fields [${ignoredFields.join(", ") || "none"}]; unknown fields [${unknownFields.join(", ") || "none"}]`
+    );
     return {
       basicVehicleStatus,
       ...typeof envelope.data.statusTime === "number" && Number.isFinite(envelope.data.statusTime) ? { statusTime: envelope.data.statusTime } : {},
