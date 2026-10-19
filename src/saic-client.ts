@@ -413,6 +413,7 @@ export class SaicApiClient {
 		const requestUrl = new URL(`${requestPath.replace(/^\/+/, '')}?${query.toString()}`, baseUrl);
 		const deadline = Date.now() + (useEventId ? 30_000 : 15_000);
 		let eventId = '0';
+		let initialTimeoutRetried = false;
 		let envelope: SaicApiEnvelope;
 		let responseHeaders: Headers;
 		while (true) {
@@ -466,10 +467,15 @@ export class SaicApiClient {
 				useEventId &&
 				returnCode !== 0 &&
 				![2, 3, 7].includes(returnCode) &&
-				(eventId !== '0' || (envelope.data === undefined && Boolean(nextEventId)))
+				(eventId !== '0' ||
+					(envelope.data === undefined && Boolean(nextEventId)) ||
+					(returnCode === 1 && !initialTimeoutRetried))
 			) {
 				if (Date.now() >= deadline) {
 					throw new Error(envelope.message || 'SAIC vehicle status timed out while waiting for vehicle data');
+				}
+				if (eventId === '0' && !nextEventId) {
+					initialTimeoutRetried = true;
 				}
 				await new Promise(resolve => setTimeout(resolve, Math.min(1_000, Math.max(0, deadline - Date.now()))));
 				if (nextEventId) {
