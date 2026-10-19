@@ -165,7 +165,7 @@ export class SaicApiClient {
 			username: options.accountIdentifier,
 			password: sha1PasswordDigest(options.password),
 			scope: 'all',
-			deviceId: `simulator*********************************************${Math.floor(requestTime / 1000)}`,
+			deviceId: `simulator*********************************************${Math.floor(requestTime / 1000)}###com.saicmotor.europecar`,
 			deviceType: '0',
 			language: 'EN',
 			loginType: options.accountType === 'email' ? '2' : '1',

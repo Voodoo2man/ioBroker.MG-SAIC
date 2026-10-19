@@ -1,5 +1,6 @@
 import { expect } from 'chai';
 import { SaicApiClient } from './saic-client';
+import { encryptSaicRequestBody, sha1PasswordDigest } from './saic-crypto';
 
 describe('SaicApiClient login', () => {
 	const options = {
@@ -13,7 +14,9 @@ describe('SaicApiClient login', () => {
 
 	it('uses the API base path and decodes an encrypted token response', async () => {
 		let requestUrl: URL | undefined;
-		const fetchFunction: typeof fetch = input => {
+		let requestInit: RequestInit | undefined;
+		const fetchFunction: typeof fetch = (input, init) => {
+			requestInit = init;
 			requestUrl = input instanceof URL ? input : new URL(input instanceof Request ? input.url : input);
 			return Promise.resolve(
 				new Response(
@@ -33,6 +36,26 @@ describe('SaicApiClient login', () => {
 
 		expect(await client.login(options)).to.deep.equal({ accessToken: 'access-token', expiresIn: 3600 });
 		expect(requestUrl?.href).to.equal('https://gateway-mg-eu.soimt.com/api.app/v1/oauth/token');
+		const form = new URLSearchParams({
+			grant_type: 'password',
+			username: options.accountIdentifier,
+			password: sha1PasswordDigest(options.password),
+			scope: 'all',
+			deviceId: 'simulator*********************************************1700000000###com.saicmotor.europecar',
+			deviceType: '0',
+			language: 'EN',
+			loginType: '2',
+		});
+		expect(requestInit?.body).to.equal(
+			encryptSaicRequestBody(
+				'/oauth/token',
+				options.tenantId,
+				'',
+				'1700000000123',
+				'application/x-www-form-urlencoded',
+				form.toString(),
+			),
+		);
 	});
 
 	it('rejects phone login without a country calling code before making a request', async () => {
