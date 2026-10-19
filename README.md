@@ -1,6 +1,6 @@
 # ioBroker MG/SAIC
 
-<img src="MG.png" alt="MG" width="157">
+<img src="MG.png" alt="MG" width="314">
 
 **The adapter foundation is under development. Global SAIC OAuth login and vehicle discovery are implemented. Telemetry, commands, polling, and India TAP are not implemented yet.** The adapter creates vehicle objects with the basic account-provided vehicle information; it does not retrieve live vehicle data.
 
