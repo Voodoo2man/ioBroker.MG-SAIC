@@ -21,7 +21,44 @@ __export(saic_client_exports, {
   SaicApiClient: () => SaicApiClient
 });
 module.exports = __toCommonJS(saic_client_exports);
+var import_node_crypto = require("node:crypto");
 var import_saic_crypto = require("./saic-crypto");
+const vehicleStatusFields = [
+  "batteryVoltage",
+  "bonnetStatus",
+  "bootStatus",
+  "canBusActive",
+  "currentJourneyDistance",
+  "dippedBeamStatus",
+  "driverDoor",
+  "driverWindow",
+  "engineStatus",
+  "exteriorTemperature",
+  "frontLeftTyrePressure",
+  "frontRightTyrePressure",
+  "fuelLevelPrc",
+  "fuelRange",
+  "fuelRangeElec",
+  "handBrake",
+  "interiorTemperature",
+  "lockStatus",
+  "mileage",
+  "passengerDoor",
+  "passengerWindow",
+  "rearLeftDoor",
+  "rearLeftTyrePressure",
+  "rearLeftWindow",
+  "rearRightDoor",
+  "rearRightTyrePressure",
+  "rearRightWindow",
+  "remoteClimateStatus",
+  "secondRowLeftSeatHeatLevel",
+  "secondRowRightSeatHeatLevel",
+  "sideLightStatus",
+  "steeringHeatLevel",
+  "sunroofStatus",
+  "vehElecRngDsp"
+];
 class SaicApiClient {
   fetchFunction;
   now;
@@ -213,6 +250,89 @@ class SaicApiClient {
       }
       return [vehicle];
     });
+  }
+  /**
+   * Retrieve the latest reported status for one vehicle.
+   *
+   * @param options Account region and tenant settings.
+   * @param accessToken Token returned by {@link login}.
+   * @param vin Vehicle identification number.
+   */
+  async getVehicleStatus(options, accessToken, vin) {
+    var _a;
+    const timestamp = String(this.now());
+    const requestPath = "/vehicle/status";
+    const contentType = "application/json";
+    const query = new URLSearchParams({
+      vin: (0, import_node_crypto.createHash)("sha256").update(vin, "utf8").digest("hex"),
+      vehStatusReqType: "2"
+    });
+    const headers = {
+      Accept: "application/json",
+      "Accept-Encoding": "gzip",
+      "Content-Type": `${contentType};charset=utf-8`,
+      "ORIGINAL-CONTENT-TYPE": contentType,
+      "APP-SEND-DATE": timestamp,
+      "APP-CONTENT-ENCRYPTED": "1",
+      "APP-LANGUAGE-TYPE": "en",
+      "APP-VERIFICATION-STRING": (0, import_saic_crypto.createSaicRequestSignature)(
+        `${requestPath}?${query.toString()}`,
+        options.tenantId,
+        accessToken,
+        timestamp,
+        contentType,
+        ""
+      ),
+      REGION: options.regionCode,
+      "tenant-id": options.tenantId,
+      "User-Type": "app",
+      "User-Agent": "Europe/2.1.0 (iPad; iOS 18.5; Scale/2.00)",
+      "blade-auth": accessToken,
+      "event-id": "0"
+    };
+    let response;
+    try {
+      const baseUrl = options.baseUrl.endsWith("/") ? options.baseUrl : `${options.baseUrl}/`;
+      const requestUrl = new URL(`${requestPath.replace(/^\/+/, "")}?${query.toString()}`, baseUrl);
+      response = await this.fetchFunction(requestUrl, {
+        method: "GET",
+        headers,
+        signal: AbortSignal.timeout(15e3)
+      });
+    } catch {
+      throw new Error("SAIC vehicle status request failed before a response was received");
+    }
+    const responseText = await response.text();
+    if (!response.ok) {
+      throw new Error(`SAIC vehicle status failed with HTTP status ${response.status}`);
+    }
+    const responseTimestamp = response.headers.get("APP-SEND-DATE");
+    const responseContentType = response.headers.get("ORIGINAL-CONTENT-TYPE");
+    const decodedBody = responseTimestamp && responseContentType ? (0, import_saic_crypto.decryptSaicResponseBody)(responseText, responseTimestamp, responseContentType) : responseText;
+    let envelope;
+    try {
+      envelope = JSON.parse(decodedBody);
+    } catch {
+      throw new Error("SAIC vehicle status returned an invalid response");
+    }
+    if (Number(envelope.code) !== 0) {
+      throw new Error(envelope.message || "SAIC vehicle status request was rejected");
+    }
+    if (!((_a = envelope.data) == null ? void 0 : _a.basicVehicleStatus) || typeof envelope.data.basicVehicleStatus !== "object" || Array.isArray(envelope.data.basicVehicleStatus)) {
+      throw new Error("SAIC vehicle status response did not contain basic status data");
+    }
+    const rawStatus = envelope.data.basicVehicleStatus;
+    const basicVehicleStatus = {};
+    for (const field of vehicleStatusFields) {
+      const value = rawStatus[field];
+      if (typeof value === "number" && Number.isFinite(value) && value !== -128) {
+        basicVehicleStatus[field] = value;
+      }
+    }
+    return {
+      basicVehicleStatus,
+      ...typeof envelope.data.statusTime === "number" && Number.isFinite(envelope.data.statusTime) ? { statusTime: envelope.data.statusTime } : {}
+    };
   }
 }
 // Annotate the CommonJS export names for ESM import in node:

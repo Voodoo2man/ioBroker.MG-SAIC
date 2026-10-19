@@ -2,7 +2,7 @@
 
 <img src="MG.png" alt="MG" width="314">
 
-**The adapter foundation is under development. Global SAIC OAuth login and vehicle discovery are implemented. Telemetry, commands, polling, and India TAP are not implemented yet.** The adapter creates vehicle objects with the basic account-provided vehicle information; it does not retrieve live vehicle data.
+**The adapter foundation is under development. Global SAIC OAuth login, vehicle discovery, and a current vehicle-status snapshot are implemented. Automatic polling, commands, and India TAP are not implemented yet.**
 
 This is an unofficial community project and is not affiliated with or endorsed by MG, SAIC, or the iSmart service.
 
@@ -17,7 +17,8 @@ The Admin form accepts an email address or phone number, an optional phone count
 - The adapter validates required account fields and displays initialization status under `info`.
 - For supported global regions, the adapter authenticates with SAIC, retrieves the account's vehicle list, and reports connection status in `info.connection` and `info.lastError`.
 - Each discovered vehicle has a `vehicles.<VIN>` device with its VIN and available name, brand, model, series, year, color, and account flags.
-- Live telemetry, polling, controls, persistence, and India TAP are not available yet.
+- At startup, the adapter requests one current status snapshot for each vehicle. Available numeric values are stored as read-only states under `vehicles.<VIN>.status`; `statusTime` contains the raw timestamp returned by SAIC.
+- Status values are raw API values and are not converted or assigned units. The adapter does not refresh them automatically; polling, controls, persistence, and India TAP are not available yet.
 - Home Assistant is not a runtime dependency.
 
 ## Installation
@@ -29,7 +30,7 @@ The adapter is not published yet. Install it through the ioBroker Admin adapter 
 ### WORK IN PROGRESS
 
 - (Voodoo2man) Added the initial TypeScript adapter foundation, secure account settings, and configuration validation.
-- (Voodoo2man) Added regional SAIC OAuth login, account connection status, and vehicle discovery with basic vehicle information; live vehicle data and India TAP remain unavailable.
+- (Voodoo2man) Added regional SAIC OAuth login, account connection status, vehicle discovery, and a current status snapshot for each vehicle; automatic polling, controls, and India TAP remain unavailable.
 
 ## License
 

@@ -125,3 +125,63 @@ describe('SaicApiClient vehicle list', () => {
 		}
 	});
 });
+
+describe('SaicApiClient vehicle status', () => {
+	const options = {
+		baseUrl: 'https://gateway-mg-eu.soimt.com/api.app/v1/',
+		regionCode: 'eu',
+		tenantId: '459771',
+		accountType: 'email' as const,
+		accountIdentifier: 'driver@example.com',
+		password: 'test-password',
+	};
+
+	it('requests status with a hashed VIN and filters unknown or unavailable fields', async () => {
+		let requestUrl: URL | undefined;
+		let requestInit: RequestInit | undefined;
+		const fetchFunction: typeof fetch = (input, init) => {
+			requestUrl = input instanceof URL ? input : new URL(input instanceof Request ? input.url : input);
+			requestInit = init;
+			return Promise.resolve(
+				new Response(
+					JSON.stringify({
+						code: 0,
+						data: {
+							statusTime: 1_700_000_000,
+							basicVehicleStatus: {
+								batteryVoltage: 142,
+								mileage: -128,
+								unexpectedValue: 5,
+								lockStatus: 'locked',
+							},
+						},
+					}),
+				),
+			);
+		};
+		const client = new SaicApiClient(fetchFunction, () => 1_700_000_000_123);
+
+		expect(await client.getVehicleStatus(options, 'test-access-token', 'LSJWH4095RN166487')).to.deep.equal({
+			statusTime: 1_700_000_000,
+			basicVehicleStatus: { batteryVoltage: 142 },
+		});
+		expect(requestUrl?.pathname).to.equal('/api.app/v1/vehicle/status');
+		expect(requestUrl?.searchParams.get('vin')).to.equal(
+			'c33961cdfef7f7b6a22110cfbd900a4cba50418b926077cf81334e6264bca0e5',
+		);
+		expect(requestUrl?.searchParams.get('vehStatusReqType')).to.equal('2');
+		expect(new Headers(requestInit?.headers).get('event-id')).to.equal('0');
+		expect(new Headers(requestInit?.headers).get('blade-auth')).to.equal('test-access-token');
+	});
+
+	it('rejects status replies without basicVehicleStatus', async () => {
+		const client = new SaicApiClient(() => Promise.resolve(new Response('{"code":0,"data":{}}')));
+
+		try {
+			await client.getVehicleStatus(options, 'test-access-token', 'LSJWH4095RN166487');
+			expect.fail('Expected missing basicVehicleStatus to be rejected');
+		} catch (error) {
+			expect((error as Error).message).to.equal('SAIC vehicle status response did not contain basic status data');
+		}
+	});
+});

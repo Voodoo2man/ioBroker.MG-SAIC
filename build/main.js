@@ -64,13 +64,49 @@ class MgSaic extends utils.Adapter {
         await this.createVehicleObjects(vehicle);
       }
       await this.setState("info.connection", true, true);
-      await this.setState("info.lastError", "", true);
       this.log.info(`SAIC account authenticated; discovered ${vehicles.length} vehicle(s).`);
+      const statusErrors = [];
+      for (const vehicle of vehicles) {
+        try {
+          const status = await client.getVehicleStatus(loginOptions, login.accessToken, vehicle.vin);
+          await this.createVehicleStatusObjects(vehicle.vin, status);
+        } catch {
+          statusErrors.push(`Vehicle status request failed for ${vehicle.vin}`);
+          this.log.warn(`Could not retrieve current status for vehicle ${vehicle.vin}.`);
+        }
+      }
+      await this.setState("info.lastError", statusErrors.join("; "), true);
     } catch {
       const error = "SAIC login failed; check the selected region, account credentials, or connectivity";
       await this.setState("info.connection", false, true);
       await this.setState("info.lastError", error, true);
       this.log.warn(error);
+    }
+  }
+  async createVehicleStatusObjects(vin, status) {
+    const statusId = `vehicles.${vin}.status`;
+    await this.setObjectNotExistsAsync(statusId, {
+      type: "channel",
+      common: { name: "Current status" },
+      native: {}
+    });
+    const values = { ...status.basicVehicleStatus };
+    if (status.statusTime !== void 0) {
+      values.statusTime = status.statusTime;
+    }
+    for (const [key, value] of Object.entries(values)) {
+      await this.setObjectNotExistsAsync(`${statusId}.${key}`, {
+        type: "state",
+        common: {
+          name: key,
+          type: "number",
+          role: "value",
+          read: true,
+          write: false
+        },
+        native: {}
+      });
+      await this.setStateAsync(`${statusId}.${key}`, { val: value, ack: true });
     }
   }
   async createVehicleObjects(vehicle) {

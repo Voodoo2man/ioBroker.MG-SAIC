@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
 	createSaicRequestSignature,
 	decryptSaicResponseBody,
@@ -53,6 +54,15 @@ export interface SaicVehicle {
 	isSubaccount?: boolean;
 }
 
+/** Vehicle status values returned by the SAIC vehicle status endpoint. */
+export interface SaicVehicleStatus {
+	/** Raw status timestamp returned by the service. */
+	statusTime?: number;
+	/** Allowlisted numeric basic vehicle status values. */
+	basicVehicleStatus: Record<string, number>;
+}
+
+/** HTTP transport type used for injectable API requests. */
 type FetchFunction = typeof fetch;
 
 interface SaicApiEnvelope {
@@ -62,8 +72,48 @@ interface SaicApiEnvelope {
 		access_token?: string;
 		expires_in?: number;
 		vinList?: unknown;
+		basicVehicleStatus?: unknown;
+		statusTime?: unknown;
 	};
 }
+
+/** Numeric basic-status fields accepted from the SAIC response. */
+const vehicleStatusFields = [
+	'batteryVoltage',
+	'bonnetStatus',
+	'bootStatus',
+	'canBusActive',
+	'currentJourneyDistance',
+	'dippedBeamStatus',
+	'driverDoor',
+	'driverWindow',
+	'engineStatus',
+	'exteriorTemperature',
+	'frontLeftTyrePressure',
+	'frontRightTyrePressure',
+	'fuelLevelPrc',
+	'fuelRange',
+	'fuelRangeElec',
+	'handBrake',
+	'interiorTemperature',
+	'lockStatus',
+	'mileage',
+	'passengerDoor',
+	'passengerWindow',
+	'rearLeftDoor',
+	'rearLeftTyrePressure',
+	'rearLeftWindow',
+	'rearRightDoor',
+	'rearRightTyrePressure',
+	'rearRightWindow',
+	'remoteClimateStatus',
+	'secondRowLeftSeatHeatLevel',
+	'secondRowRightSeatHeatLevel',
+	'sideLightStatus',
+	'steeringHeatLevel',
+	'sunroofStatus',
+	'vehElecRngDsp',
+] as const;
 
 /** Minimal client for the global SAIC OAuth login endpoint. */
 export class SaicApiClient {
@@ -280,5 +330,108 @@ export class SaicApiClient {
 			}
 			return [vehicle];
 		});
+	}
+
+	/**
+	 * Retrieve the latest reported status for one vehicle.
+	 *
+	 * @param options Account region and tenant settings.
+	 * @param accessToken Token returned by {@link login}.
+	 * @param vin Vehicle identification number.
+	 */
+	public async getVehicleStatus(
+		options: SaicLoginOptions,
+		accessToken: string,
+		vin: string,
+	): Promise<SaicVehicleStatus> {
+		const timestamp = String(this.now());
+		const requestPath = '/vehicle/status';
+		const contentType = 'application/json';
+		const query = new URLSearchParams({
+			vin: createHash('sha256').update(vin, 'utf8').digest('hex'),
+			vehStatusReqType: '2',
+		});
+		const headers: Record<string, string> = {
+			Accept: 'application/json',
+			'Accept-Encoding': 'gzip',
+			'Content-Type': `${contentType};charset=utf-8`,
+			'ORIGINAL-CONTENT-TYPE': contentType,
+			'APP-SEND-DATE': timestamp,
+			'APP-CONTENT-ENCRYPTED': '1',
+			'APP-LANGUAGE-TYPE': 'en',
+			'APP-VERIFICATION-STRING': createSaicRequestSignature(
+				`${requestPath}?${query.toString()}`,
+				options.tenantId,
+				accessToken,
+				timestamp,
+				contentType,
+				'',
+			),
+			REGION: options.regionCode,
+			'tenant-id': options.tenantId,
+			'User-Type': 'app',
+			'User-Agent': 'Europe/2.1.0 (iPad; iOS 18.5; Scale/2.00)',
+			'blade-auth': accessToken,
+			'event-id': '0',
+		};
+
+		let response: Response;
+		try {
+			const baseUrl = options.baseUrl.endsWith('/') ? options.baseUrl : `${options.baseUrl}/`;
+			const requestUrl = new URL(`${requestPath.replace(/^\/+/, '')}?${query.toString()}`, baseUrl);
+			response = await this.fetchFunction(requestUrl, {
+				method: 'GET',
+				headers,
+				signal: AbortSignal.timeout(15_000),
+			});
+		} catch {
+			throw new Error('SAIC vehicle status request failed before a response was received');
+		}
+
+		const responseText = await response.text();
+		if (!response.ok) {
+			throw new Error(`SAIC vehicle status failed with HTTP status ${response.status}`);
+		}
+
+		const responseTimestamp = response.headers.get('APP-SEND-DATE');
+		const responseContentType = response.headers.get('ORIGINAL-CONTENT-TYPE');
+		const decodedBody =
+			responseTimestamp && responseContentType
+				? decryptSaicResponseBody(responseText, responseTimestamp, responseContentType)
+				: responseText;
+
+		let envelope: SaicApiEnvelope;
+		try {
+			envelope = JSON.parse(decodedBody) as SaicApiEnvelope;
+		} catch {
+			throw new Error('SAIC vehicle status returned an invalid response');
+		}
+
+		if (Number(envelope.code) !== 0) {
+			throw new Error(envelope.message || 'SAIC vehicle status request was rejected');
+		}
+		if (
+			!envelope.data?.basicVehicleStatus ||
+			typeof envelope.data.basicVehicleStatus !== 'object' ||
+			Array.isArray(envelope.data.basicVehicleStatus)
+		) {
+			throw new Error('SAIC vehicle status response did not contain basic status data');
+		}
+
+		const rawStatus = envelope.data.basicVehicleStatus as Record<string, unknown>;
+		const basicVehicleStatus: Record<string, number> = {};
+		for (const field of vehicleStatusFields) {
+			const value = rawStatus[field];
+			if (typeof value === 'number' && Number.isFinite(value) && value !== -128) {
+				basicVehicleStatus[field] = value;
+			}
+		}
+
+		return {
+			basicVehicleStatus,
+			...(typeof envelope.data.statusTime === 'number' && Number.isFinite(envelope.data.statusTime)
+				? { statusTime: envelope.data.statusTime }
+				: {}),
+		};
 	}
 }
