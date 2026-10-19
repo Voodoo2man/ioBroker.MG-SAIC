@@ -37,6 +37,7 @@ The adapter is not published yet. Install it through the ioBroker Admin adapter 
 - (Voodoo2man) Retried initial live status timeout responses when SAIC provided an event ID.
 - (Voodoo2man) Retried one initial live status timeout when SAIC omitted the event ID.
 - (Voodoo2man) Added localized Home Assistant-style names for vehicle status data points.
+- (Voodoo2man) Added speed, vehicle alarm status, and tyre monitor status data points from SAIC vehicle status.
 
 ## License
 

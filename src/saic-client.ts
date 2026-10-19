@@ -75,6 +75,7 @@ interface SaicApiEnvelope {
 		expires_in?: number;
 		vinList?: unknown;
 		basicVehicleStatus?: unknown;
+		gpsPosition?: unknown;
 		statusTime?: unknown;
 		onlineStatus?: unknown;
 	};
@@ -114,8 +115,11 @@ const vehicleStatusFields = [
 	'secondRowRightSeatHeatLevel',
 	'sideLightStatus',
 	'steeringHeatLevel',
+	'steeringWheelHeatFailureReason',
 	'sunroofStatus',
 	'vehElecRngDsp',
+	'vehicleAlarmStatus',
+	'wheelTyreMonitorStatus',
 ] as const;
 
 /** Minimal client for the global SAIC OAuth login endpoint. */
@@ -513,6 +517,16 @@ export class SaicApiClient {
 			const value = rawStatus[field];
 			if (typeof value === 'number' && Number.isFinite(value) && value !== -128) {
 				basicVehicleStatus[field] = value;
+			}
+		}
+		const gpsPosition = envelope.data.gpsPosition;
+		if (gpsPosition && typeof gpsPosition === 'object' && !Array.isArray(gpsPosition)) {
+			const wayPoint = (gpsPosition as Record<string, unknown>).wayPoint;
+			if (wayPoint && typeof wayPoint === 'object' && !Array.isArray(wayPoint)) {
+				const speed = (wayPoint as Record<string, unknown>).speed;
+				if (typeof speed === 'number' && Number.isFinite(speed) && speed !== -128) {
+					basicVehicleStatus.speed = speed;
+				}
 			}
 		}
 

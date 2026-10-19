@@ -17,6 +17,7 @@ describe('getVehicleStatusMetadata', () => {
 		expect(getVehicleStatusMetadata('interiorTemperature').unit).to.equal('°C');
 		expect(getVehicleStatusMetadata('fuelRange').unit).to.equal('km');
 		expect(getVehicleStatusMetadata('frontLeftTyrePressure').unit).to.equal('bar');
+		expect(getVehicleStatusMetadata('speed').unit).to.equal('km/h');
 	});
 
 	it('converts binary numeric status values to booleans', () => {
@@ -47,5 +48,7 @@ describe('getVehicleStatusMetadata', () => {
 			expect(names[language]).to.be.a('string').and.not.empty;
 		}
 		expect(getVehicleStatusMetadata('fuelRange').name.en).to.equal('Fossil fuel range');
+		expect(getVehicleStatusMetadata('speed').name.en).to.equal('Speed');
+		expect(getVehicleStatusMetadata('wheelTyreMonitorStatus').name.en).to.equal('Wheel tyre monitor status');
 	});
 });

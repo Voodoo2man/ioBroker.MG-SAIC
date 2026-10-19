@@ -151,9 +151,12 @@ describe('SaicApiClient vehicle status', () => {
 							basicVehicleStatus: {
 								batteryVoltage: 142,
 								mileage: -128,
+								vehicleAlarmStatus: 1,
+								wheelTyreMonitorStatus: 2,
 								unexpectedValue: 5,
 								lockStatus: 'locked',
 							},
+							gpsPosition: { wayPoint: { speed: 42 } },
 						},
 					}),
 				),
@@ -163,7 +166,7 @@ describe('SaicApiClient vehicle status', () => {
 
 		expect(await client.getVehicleStatus(options, 'test-access-token', 'LSJWH4095RN166487')).to.deep.equal({
 			statusTime: 1_700_000_000,
-			basicVehicleStatus: { batteryVoltage: 142 },
+			basicVehicleStatus: { batteryVoltage: 142, vehicleAlarmStatus: 1, wheelTyreMonitorStatus: 2, speed: 42 },
 		});
 		expect(requestUrl?.pathname).to.equal('/api.app/v1/vehicle/status');
 		expect(requestUrl?.searchParams.get('vin')).to.equal(
