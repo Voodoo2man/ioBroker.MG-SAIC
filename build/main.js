@@ -159,15 +159,35 @@ class MgSaic extends utils.Adapter {
       values.onlineStatus = status.onlineStatus;
     }
     for (const [key, value] of Object.entries(values)) {
-      const metadata = (0, import_status_metadata.getVehicleStatusMetadata)(key);
-      await this.extendObjectAsync(`${statusId}.${key}`, {
-        common: {
-          type: metadata.type,
-          role: metadata.role,
-          ...metadata.unit ? { unit: metadata.unit } : {}
-        }
+      const group = (0, import_status_metadata.getVehicleStatusGroup)(key);
+      const groupId = `${statusId}.${group}`;
+      await this.setObjectNotExistsAsync(groupId, {
+        type: "channel",
+        common: { name: group },
+        native: {}
       });
-      await this.setStateAsync(`${statusId}.${key}`, { val: (0, import_status_metadata.normalizeVehicleStatusValue)(key, value), ack: true });
+      const metadata = (0, import_status_metadata.getVehicleStatusMetadata)(key);
+      const stateId = `${groupId}.${key}`;
+      const common = {
+        name: metadata.name,
+        type: metadata.type,
+        role: metadata.role,
+        read: true,
+        write: false,
+        ...metadata.unit ? { unit: metadata.unit } : {}
+      };
+      await this.setObjectNotExistsAsync(stateId, {
+        type: "state",
+        common,
+        native: {}
+      });
+      await this.extendObjectAsync(stateId, {
+        type: "state",
+        common,
+        native: {}
+      });
+      await this.setStateAsync(stateId, { val: (0, import_status_metadata.normalizeVehicleStatusValue)(key, value), ack: true });
+      await this.delObjectAsync(`${statusId}.${key}`);
     }
   }
   async createVehicleObjects(vehicle) {

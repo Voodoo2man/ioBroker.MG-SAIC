@@ -56,8 +56,11 @@ const vehicleStatusFields = [
   "secondRowRightSeatHeatLevel",
   "sideLightStatus",
   "steeringHeatLevel",
+  "steeringWheelHeatFailureReason",
   "sunroofStatus",
-  "vehElecRngDsp"
+  "vehElecRngDsp",
+  "vehicleAlarmStatus",
+  "wheelTyreMonitorStatus"
 ];
 class SaicApiClient {
   fetchFunction;
@@ -314,6 +317,7 @@ class SaicApiClient {
     const requestUrl = new URL(`${requestPath.replace(/^\/+/, "")}?${query.toString()}`, baseUrl);
     const deadline = Date.now() + (useEventId ? 3e4 : 15e3);
     let eventId = "0";
+    let initialTimeoutRetried = false;
     let envelope;
     let responseHeaders;
     while (true) {
@@ -356,6 +360,20 @@ class SaicApiClient {
         }
         continue;
       }
+      const returnCode = Number(envelope.code);
+      if (useEventId && returnCode !== 0 && ![2, 3, 7].includes(returnCode) && (eventId !== "0" || envelope.data === void 0 && Boolean(nextEventId) || returnCode === 1 && !initialTimeoutRetried)) {
+        if (Date.now() >= deadline) {
+          throw new Error(envelope.message || "SAIC vehicle status timed out while waiting for vehicle data");
+        }
+        if (eventId === "0" && !nextEventId) {
+          initialTimeoutRetried = true;
+        }
+        await new Promise((resolve) => setTimeout(resolve, Math.min(1e3, Math.max(0, deadline - Date.now()))));
+        if (nextEventId) {
+          eventId = nextEventId;
+        }
+        continue;
+      }
       break;
     }
     if (Number(envelope.code) !== 0) {
@@ -376,6 +394,16 @@ class SaicApiClient {
       const value = rawStatus[field];
       if (typeof value === "number" && Number.isFinite(value) && value !== -128) {
         basicVehicleStatus[field] = value;
+      }
+    }
+    const gpsPosition = envelope.data.gpsPosition;
+    if (gpsPosition && typeof gpsPosition === "object" && !Array.isArray(gpsPosition)) {
+      const wayPoint = gpsPosition.wayPoint;
+      if (wayPoint && typeof wayPoint === "object" && !Array.isArray(wayPoint)) {
+        const speed = wayPoint.speed;
+        if (typeof speed === "number" && Number.isFinite(speed) && speed !== -128) {
+          basicVehicleStatus.speed = speed;
+        }
       }
     }
     return {
