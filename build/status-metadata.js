@@ -47,12 +47,27 @@ const statusUnits = {
   batteryVoltage: "V",
   currentJourneyDistance: "km",
   exteriorTemperature: "\xB0C",
+  frontLeftTyrePressure: "bar",
+  frontRightTyrePressure: "bar",
   fuelLevelPrc: "%",
   fuelRange: "km",
   fuelRangeElec: "km",
   interiorTemperature: "\xB0C",
   mileage: "km",
+  rearLeftTyrePressure: "bar",
+  rearRightTyrePressure: "bar",
   vehElecRngDsp: "km"
+};
+const statusScales = {
+  batteryVoltage: { factor: 0.1, precision: 1 },
+  currentJourneyDistance: { factor: 0.1, precision: 1 },
+  fuelRange: { factor: 0.1, precision: 1 },
+  fuelRangeElec: { factor: 0.1, precision: 1 },
+  frontLeftTyrePressure: { factor: 0.04, precision: 2 },
+  frontRightTyrePressure: { factor: 0.04, precision: 2 },
+  mileage: { factor: 0.1, precision: 1 },
+  rearLeftTyrePressure: { factor: 0.04, precision: 2 },
+  rearRightTyrePressure: { factor: 0.04, precision: 2 }
 };
 function getVehicleStatusMetadata(key) {
   if (booleanStatusFields.has(key)) {
@@ -65,7 +80,11 @@ function getVehicleStatusMetadata(key) {
   };
 }
 function normalizeVehicleStatusValue(key, value) {
-  return booleanStatusFields.has(key) && (value === 0 || value === 1) ? value === 1 : value;
+  if (booleanStatusFields.has(key) && (value === 0 || value === 1)) {
+    return value === 1;
+  }
+  const scale = statusScales[key];
+  return scale ? Number((value * scale.factor).toFixed(scale.precision)) : value;
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {

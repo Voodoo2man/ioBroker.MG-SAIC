@@ -34,12 +34,28 @@ const statusUnits: Record<string, string> = {
 	batteryVoltage: 'V',
 	currentJourneyDistance: 'km',
 	exteriorTemperature: '°C',
+	frontLeftTyrePressure: 'bar',
+	frontRightTyrePressure: 'bar',
 	fuelLevelPrc: '%',
 	fuelRange: 'km',
 	fuelRangeElec: 'km',
 	interiorTemperature: '°C',
 	mileage: 'km',
+	rearLeftTyrePressure: 'bar',
+	rearRightTyrePressure: 'bar',
 	vehElecRngDsp: 'km',
+};
+
+const statusScales: Record<string, { factor: number; precision: number }> = {
+	batteryVoltage: { factor: 0.1, precision: 1 },
+	currentJourneyDistance: { factor: 0.1, precision: 1 },
+	fuelRange: { factor: 0.1, precision: 1 },
+	fuelRangeElec: { factor: 0.1, precision: 1 },
+	frontLeftTyrePressure: { factor: 0.04, precision: 2 },
+	frontRightTyrePressure: { factor: 0.04, precision: 2 },
+	mileage: { factor: 0.1, precision: 1 },
+	rearLeftTyrePressure: { factor: 0.04, precision: 2 },
+	rearRightTyrePressure: { factor: 0.04, precision: 2 },
 };
 
 /**
@@ -65,5 +81,9 @@ export function getVehicleStatusMetadata(key: string): VehicleStatusMetadata {
  * @param value Numeric value returned by the API.
  */
 export function normalizeVehicleStatusValue(key: string, value: number): number | boolean {
-	return booleanStatusFields.has(key) && (value === 0 || value === 1) ? value === 1 : value;
+	if (booleanStatusFields.has(key) && (value === 0 || value === 1)) {
+		return value === 1;
+	}
+	const scale = statusScales[key];
+	return scale ? Number((value * scale.factor).toFixed(scale.precision)) : value;
 }

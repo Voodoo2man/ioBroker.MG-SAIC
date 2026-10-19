@@ -21,7 +21,7 @@ The Admin form accepts an email address or phone number, an optional phone count
 - Each discovered vehicle has a `vehicles.<VIN>` device with its VIN and available name, brand, model, series, year, color, and account flags.
 - The adapter requests both a live status and SAIC's last cached status for each vehicle at startup and at the configured interval. Available numeric values are stored separately as read-only states under `vehicles.<VIN>.status` and `vehicles.<VIN>.cachedStatus`.
 - Configure the automatic status polling interval in seconds in the adapter settings (default: 1800 seconds). Write `true` to `commands.refresh` to request an immediate refresh.
-- Status measurements retain the raw API values and include units where known; binary status fields are exposed as boolean indicators. Persistence and India TAP are not available yet.
+- Status measurements are converted from documented raw API scales to display units where known (including km, V, and bar); binary status fields are exposed as boolean indicators. Other measurements retain their API values. Persistence and India TAP are not available yet.
 - Home Assistant is not a runtime dependency.
 
 ## Installation
@@ -32,8 +32,7 @@ The adapter is not published yet. Install it through the ioBroker Admin adapter 
 
 ### **WORK IN PROGRESS**
 
-- (Voodoo2man) Initial Version (0.0.1)
-- (Voodoo2man) Improved live status polling when SAIC delays vehicle data.
+- (Voodoo2man) Initial Version
 
 ## License
 
