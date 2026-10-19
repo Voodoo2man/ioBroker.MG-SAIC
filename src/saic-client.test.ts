@@ -181,7 +181,9 @@ describe('SaicApiClient vehicle status', () => {
 			await client.getVehicleStatus(options, 'test-access-token', 'LSJWH4095RN166487');
 			expect.fail('Expected missing basicVehicleStatus to be rejected');
 		} catch (error) {
-			expect((error as Error).message).to.equal('SAIC vehicle status response did not contain basic status data');
+			expect((error as Error).message).to.contain(
+				'SAIC vehicle status response did not contain basic status data (code: 0, response keys: code, data, data keys: none)',
+			);
 		}
 	});
 

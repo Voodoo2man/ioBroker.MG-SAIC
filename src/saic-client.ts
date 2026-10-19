@@ -416,7 +416,14 @@ export class SaicApiClient {
 			typeof envelope.data.basicVehicleStatus !== 'object' ||
 			Array.isArray(envelope.data.basicVehicleStatus)
 		) {
-			throw new Error('SAIC vehicle status response did not contain basic status data');
+			const responseKeys = Object.keys(envelope).join(', ') || 'none';
+			const dataKeys =
+				envelope.data && typeof envelope.data === 'object' && !Array.isArray(envelope.data)
+					? Object.keys(envelope.data).join(', ') || 'none'
+					: 'unavailable';
+			throw new Error(
+				`SAIC vehicle status response did not contain basic status data (code: ${String(envelope.code)}, response keys: ${responseKeys}, data keys: ${dataKeys})`,
+			);
 		}
 
 		const rawStatus = envelope.data.basicVehicleStatus as Record<string, unknown>;
