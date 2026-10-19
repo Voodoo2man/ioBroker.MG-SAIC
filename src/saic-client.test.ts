@@ -270,6 +270,26 @@ describe('SaicApiClient vehicle status', () => {
 		expect(requestEventIds).to.deep.equal(['0', 'event-123', 'event-456']);
 	});
 
+	it('retries an initial live timeout reply when SAIC provides an event id', async () => {
+		const requestEventIds: string[] = [];
+		const client = new SaicApiClient((_input, init) => {
+			requestEventIds.push(new Headers(init?.headers).get('event-id') ?? 'missing');
+			if (requestEventIds.length === 1) {
+				return Promise.resolve(
+					new Response('{"code":1,"message":"The request timed out, please try again later."}', {
+						headers: { 'event-id': 'event-123' },
+					}),
+				);
+			}
+			return Promise.resolve(new Response('{"code":0,"data":{"basicVehicleStatus":{"lockStatus":1}}}'));
+		});
+
+		expect(await client.getVehicleStatus(options, 'test-access-token', 'LSJWH4095RN166487')).to.deep.equal({
+			basicVehicleStatus: { lockStatus: 1 },
+		});
+		expect(requestEventIds).to.deep.equal(['0', 'event-123']);
+	});
+
 	it('requests SAIC cached status without an event id', async () => {
 		let requestUrl: URL | undefined;
 		let requestInit: RequestInit | undefined;
