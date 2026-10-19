@@ -222,6 +222,24 @@ describe('SaicApiClient vehicle status', () => {
 		expect(requestEventIds).to.deep.equal(['0', 'next-event-123']);
 	});
 
+	it('retries empty live replies without an event id using the current event id', async () => {
+		const requestEventIds: string[] = [];
+		let callCount = 0;
+		const client = new SaicApiClient((_input, init) => {
+			requestEventIds.push(new Headers(init?.headers).get('event-id') ?? 'missing');
+			callCount += 1;
+			if (callCount === 1) {
+				return Promise.resolve(new Response('{"code":0,"message":"success"}'));
+			}
+			return Promise.resolve(new Response('{"code":0,"data":{"basicVehicleStatus":{"lockStatus":1}}}'));
+		});
+
+		expect(await client.getVehicleStatus(options, 'test-access-token', 'LSJWH4095RN166487')).to.deep.equal({
+			basicVehicleStatus: { lockStatus: 1 },
+		});
+		expect(requestEventIds).to.deep.equal(['0', '0']);
+	});
+
 	it('requests SAIC cached status without an event id', async () => {
 		let requestUrl: URL | undefined;
 		let requestInit: RequestInit | undefined;

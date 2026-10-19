@@ -33,6 +33,7 @@ The adapter is not published yet. Install it through the ioBroker Admin adapter 
 ### **WORK IN PROGRESS**
 
 - (Voodoo2man) Initial Version (0.0.1)
+- (Voodoo2man) Improved live status polling when SAIC delays vehicle data.
 
 ## License
 
