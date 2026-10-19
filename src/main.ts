@@ -167,13 +167,23 @@ class MgSaic extends utils.Adapter {
 			});
 			const metadata = getVehicleStatusMetadata(key);
 			const stateId = `${groupId}.${key}`;
+			const common = {
+				name: metadata.name,
+				type: metadata.type,
+				role: metadata.role,
+				read: true,
+				write: false,
+				...(metadata.unit ? { unit: metadata.unit } : {}),
+			};
+			await this.setObjectNotExistsAsync(stateId, {
+				type: 'state',
+				common,
+				native: {},
+			});
 			await this.extendObjectAsync(stateId, {
-				common: {
-					name: metadata.name,
-					type: metadata.type,
-					role: metadata.role,
-					...(metadata.unit ? { unit: metadata.unit } : {}),
-				},
+				type: 'state',
+				common,
+				native: {},
 			});
 			await this.setStateAsync(stateId, { val: normalizeVehicleStatusValue(key, value), ack: true });
 			await this.delObjectAsync(`${statusId}.${key}`);

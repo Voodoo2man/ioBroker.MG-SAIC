@@ -39,6 +39,7 @@ The adapter is not published yet. Install it through the ioBroker Admin adapter 
 - (Voodoo2man) Added localized Home Assistant-style names for vehicle status data points.
 - (Voodoo2man) Added speed, vehicle alarm status, and tyre monitor status data points from SAIC vehicle status.
 - (Voodoo2man) Grouped vehicle status data points into functional subchannels.
+- (Voodoo2man) Created and repaired status objects with complete ioBroker state metadata.
 
 ## License
 
