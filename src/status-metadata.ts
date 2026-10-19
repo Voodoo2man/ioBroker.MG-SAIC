@@ -628,6 +628,9 @@ export function getVehicleStatusMetadata(key: string): VehicleStatusMetadata {
 				key,
 			]),
 		) as LocalizedStatusName);
+	if (key === 'statusTime') {
+		return { type: 'number', role: 'date', name };
+	}
 	if (booleanStatusFields.has(key)) {
 		return { type: 'boolean', role: 'indicator', name };
 	}
@@ -646,6 +649,9 @@ export function getVehicleStatusMetadata(key: string): VehicleStatusMetadata {
  * @param value Numeric value returned by the API.
  */
 export function normalizeVehicleStatusValue(key: string, value: number): number | boolean {
+	if (key === 'statusTime') {
+		return value * 1000;
+	}
 	if (booleanStatusFields.has(key) && (value === 0 || value === 1)) {
 		return value === 1;
 	}

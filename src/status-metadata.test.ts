@@ -29,6 +29,7 @@ describe('getVehicleStatusMetadata', () => {
 		expect(getVehicleStatusMetadata('fuelRange').unit).to.equal('km');
 		expect(getVehicleStatusMetadata('frontLeftTyrePressure').unit).to.equal('bar');
 		expect(getVehicleStatusMetadata('speed').unit).to.equal('km/h');
+		expect(getVehicleStatusMetadata('statusTime')).to.include({ type: 'number', role: 'date' });
 	});
 
 	it('converts binary numeric status values to booleans', () => {
@@ -40,6 +41,7 @@ describe('getVehicleStatusMetadata', () => {
 		expect(normalizeVehicleStatusValue('currentJourneyDistance', 125)).to.equal(12.5);
 		expect(normalizeVehicleStatusValue('frontLeftTyrePressure', 62)).to.equal(2.48);
 		expect(normalizeVehicleStatusValue('interiorTemperature', 21)).to.equal(21);
+		expect(normalizeVehicleStatusValue('statusTime', 1_792_442_089)).to.equal(1_792_442_089_000);
 	});
 
 	it('leaves unknown measurements unchanged', () => {

@@ -609,6 +609,9 @@ function getVehicleStatusMetadata(key) {
       key
     ])
   );
+  if (key === "statusTime") {
+    return { type: "number", role: "date", name };
+  }
   if (booleanStatusFields.has(key)) {
     return { type: "boolean", role: "indicator", name };
   }
@@ -620,6 +623,9 @@ function getVehicleStatusMetadata(key) {
   };
 }
 function normalizeVehicleStatusValue(key, value) {
+  if (key === "statusTime") {
+    return value * 1e3;
+  }
   if (booleanStatusFields.has(key) && (value === 0 || value === 1)) {
     return value === 1;
   }

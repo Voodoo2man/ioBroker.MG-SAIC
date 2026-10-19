@@ -434,6 +434,13 @@ export class SaicApiClient {
 				});
 			} catch (error) {
 				const details = error instanceof Error ? error.message : 'Unknown network error';
+				const isTimeout =
+					error instanceof Error &&
+					(error.name === 'TimeoutError' || /timed?\s*out|timeout/i.test(error.message));
+				if (useEventId && isTimeout && Date.now() < deadline) {
+					await new Promise(resolve => setTimeout(resolve, Math.min(1_000, deadline - Date.now())));
+					continue;
+				}
 				throw new Error(`SAIC vehicle status request failed before a response was received: ${details}`);
 			}
 
