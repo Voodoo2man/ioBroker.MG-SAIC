@@ -423,6 +423,9 @@ class SaicApiClient {
         continue;
       }
       const returnCode = Number(envelope.code);
+      if (useEventId && returnCode === 12808) {
+        throw new RetryableVehicleStatusError(envelope.message || "SAIC vehicle status request timed out");
+      }
       if (useEventId && returnCode !== 0 && ![2, 3, 7].includes(returnCode) && (eventId !== "0" || envelope.data === void 0 && Boolean(nextEventId) || returnCode === 1 && !initialTimeoutRetried)) {
         if (Date.now() >= deadline) {
           throw new Error(envelope.message || "SAIC vehicle status timed out while waiting for vehicle data");

@@ -42,6 +42,7 @@ The adapter is not published yet. Install it through the ioBroker Admin adapter 
 - (Voodoo2man) Created and repaired status objects with complete ioBroker state metadata.
 - (Voodoo2man) Displayed status timestamps as dates and retried timed-out live HTTP waits.
 - (Voodoo2man) Matched Home Assistant's live-status retries for transient transport failures.
+- (Voodoo2man) Restarted live status requests after SAIC reported a vehicle request timeout.
 - (Voodoo2man) Added privacy-conscious status diagnostics, including bounded SAIC response messages and state creation details.
 - (Voodoo2man) Published cached vehicle status before waiting for live status responses.
 
