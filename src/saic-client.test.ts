@@ -184,4 +184,15 @@ describe('SaicApiClient vehicle status', () => {
 			expect((error as Error).message).to.equal('SAIC vehicle status response did not contain basic status data');
 		}
 	});
+
+	it('preserves network failure details for status requests', async () => {
+		const client = new SaicApiClient(() => Promise.reject(new Error('getaddrinfo ENOTFOUND gateway.example')));
+
+		try {
+			await client.getVehicleStatus(options, 'test-access-token', 'LSJWH4095RN166487');
+			expect.fail('Expected network failure to be rejected');
+		} catch (error) {
+			expect((error as Error).message).to.contain('getaddrinfo ENOTFOUND gateway.example');
+		}
+	});
 });

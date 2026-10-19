@@ -384,8 +384,9 @@ export class SaicApiClient {
 				headers,
 				signal: AbortSignal.timeout(15_000),
 			});
-		} catch {
-			throw new Error('SAIC vehicle status request failed before a response was received');
+		} catch (error) {
+			const details = error instanceof Error ? error.message : 'Unknown network error';
+			throw new Error(`SAIC vehicle status request failed before a response was received: ${details}`);
 		}
 
 		const responseText = await response.text();
