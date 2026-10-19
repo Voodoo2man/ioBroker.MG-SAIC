@@ -1,5 +1,18 @@
 {
-	"mg-saic adapter settings": "Настройки адаптера для mg-saic",
-	"option1": "вариант 1",
-	"option2": "вариант 2"
+	"iSmart account": "Учетная запись iSmart",
+	"Cloud connection": "Подключение к облаку",
+	"Account credentials": "Данные учетной записи",
+	"Status updates": "Обновление статуса",
+	"To avoid possible session interference with the mobile app, use a separate iSmart account for ioBroker where possible. Share the vehicle with that account and grant the permissions needed for your intended use.": "Чтобы избежать возможных конфликтов сеанса с мобильным приложением, по возможности используйте отдельную учетную запись iSmart для ioBroker. Предоставьте этой учетной записи доступ к автомобилю и необходимые для использования разрешения.",
+	"Region": "Регион",
+	"European Union": "Европейский союз",
+	"Rest of World": "Остальной мир",
+	"Cloud connectivity is not implemented yet. This value does not select a working backend.": "Подключение к облаку пока не реализовано. Это значение не выбирает работающий сервер.",
+	"Login type": "Тип входа",
+	"Email": "Электронная почта",
+	"Phone number": "Номер телефона",
+	"Email address or phone number": "Адрес электронной почты или номер телефона",
+	"Phone country calling code": "Международный телефонный код страны",
+	"Password": "Пароль",
+	"Status polling interval (seconds)": "Интервал опроса статуса (секунды)"
 }

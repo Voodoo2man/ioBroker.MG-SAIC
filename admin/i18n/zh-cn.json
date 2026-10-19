@@ -1,5 +1,18 @@
 {
-	"mg-saic adapter settings": "mg-saic的适配器设置",
-	"option1": "选项1",
-	"option2": "选项2"
+	"iSmart account": "iSmart 账户",
+	"Cloud connection": "云连接",
+	"Account credentials": "账户凭据",
+	"Status updates": "状态更新",
+	"To avoid possible session interference with the mobile app, use a separate iSmart account for ioBroker where possible. Share the vehicle with that account and grant the permissions needed for your intended use.": "为避免与手机应用的会话发生冲突，请尽可能为 ioBroker 使用单独的 iSmart 账户。将车辆共享给该账户，并授予预期用途所需的权限。",
+	"Region": "地区",
+	"European Union": "欧盟",
+	"Rest of World": "其他地区",
+	"Cloud connectivity is not implemented yet. This value does not select a working backend.": "云连接尚未实现。此选项不会选择可用的后端服务。",
+	"Login type": "登录类型",
+	"Email": "电子邮箱",
+	"Phone number": "电话号码",
+	"Email address or phone number": "电子邮箱地址或电话号码",
+	"Phone country calling code": "国际电话区号",
+	"Password": "密码",
+	"Status polling interval (seconds)": "状态轮询间隔（秒）"
 }

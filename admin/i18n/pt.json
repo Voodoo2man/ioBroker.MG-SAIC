@@ -1,5 +1,18 @@
 {
-	"mg-saic adapter settings": "Configurações do adaptador para mg-saic",
-	"option1": "opção1",
-	"option2": "opção2"
+	"iSmart account": "Conta iSmart",
+	"Cloud connection": "Ligação à nuvem",
+	"Account credentials": "Credenciais da conta",
+	"Status updates": "Atualizações de estado",
+	"To avoid possible session interference with the mobile app, use a separate iSmart account for ioBroker where possible. Share the vehicle with that account and grant the permissions needed for your intended use.": "Para evitar possíveis interferências de sessão com a aplicação móvel, utilize, sempre que possível, uma conta iSmart separada para o ioBroker. Partilhe o veículo com essa conta e conceda as permissões necessárias para a utilização pretendida.",
+	"Region": "Região",
+	"European Union": "União Europeia",
+	"Rest of World": "Resto do mundo",
+	"Cloud connectivity is not implemented yet. This value does not select a working backend.": "A ligação à nuvem ainda não está implementada. Este valor não seleciona um serviço funcional.",
+	"Login type": "Tipo de início de sessão",
+	"Email": "E-mail",
+	"Phone number": "Número de telefone",
+	"Email address or phone number": "Endereço de e-mail ou número de telefone",
+	"Phone country calling code": "Indicativo internacional do país",
+	"Password": "Palavra-passe",
+	"Status polling interval (seconds)": "Intervalo de consulta do estado (segundos)"
 }
