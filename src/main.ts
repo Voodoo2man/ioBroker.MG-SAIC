@@ -51,9 +51,11 @@ class MgSaic extends utils.Adapter {
 				try {
 					const status = await client.getVehicleStatus(loginOptions, login.accessToken, vehicle.vin);
 					await this.createVehicleStatusObjects(vehicle.vin, status);
-				} catch {
-					statusErrors.push(`Vehicle status request failed for ${vehicle.vin}`);
-					this.log.warn(`Could not retrieve current status for vehicle ${vehicle.vin}.`);
+				} catch (error) {
+					const details = error instanceof Error ? error.message : 'Unknown error';
+					const message = `Vehicle status request failed for ${vehicle.vin}: ${details}`;
+					statusErrors.push(message);
+					this.log.warn(`Could not retrieve current status for vehicle ${vehicle.vin}: ${details}`);
 				}
 			}
 			await this.setState('info.lastError', statusErrors.join('; '), true);
