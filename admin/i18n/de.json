@@ -1,0 +1,12 @@
+{
+	"iSmart account": "iSmart-Konto",
+	"To avoid possible session interference with the mobile app, use a separate iSmart account for ioBroker where possible. Share the vehicle with that account and grant the permissions needed for your intended use.": "Um mögliche Konflikte mit der mobilen App zu vermeiden, verwenden Sie nach Möglichkeit ein separates iSmart-Konto für ioBroker. Teilen Sie das Fahrzeug mit diesem Konto und erteilen Sie die für die gewünschte Nutzung erforderlichen Berechtigungen.",
+	"Region/backend code": "Regions-/Backend-Code",
+	"Cloud connectivity is not implemented yet. This value does not select a working backend.": "Die Cloud-Anbindung ist noch nicht implementiert. Dieser Wert wählt kein funktionsfähiges Backend aus.",
+	"Login type": "Anmeldetyp",
+	"Email": "E-Mail",
+	"Phone number": "Telefonnummer",
+	"Email address or phone number": "E-Mail-Adresse oder Telefonnummer",
+	"Phone country calling code": "Internationale Ländervorwahl",
+	"Password": "Passwort"
+}

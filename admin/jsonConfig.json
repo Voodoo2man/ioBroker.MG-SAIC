@@ -1,0 +1,46 @@
+{
+	"i18n": true,
+	"type": "tabs",
+	"items": {
+		"account": {
+			"type": "panel",
+			"label": "iSmart account",
+			"items": {
+				"_accountWarning": {
+					"type": "staticText",
+					"icon": "warning",
+					"text": "To avoid possible session interference with the mobile app, use a separate iSmart account for ioBroker where possible. Share the vehicle with that account and grant the permissions needed for your intended use."
+				},
+				"region": {
+					"type": "text",
+					"label": "Region/backend code",
+					"default": "EU"
+				},
+				"accountType": {
+					"type": "select",
+					"label": "Login type",
+					"options": [
+						{ "label": "Email", "value": "email" },
+						{ "label": "Phone number", "value": "phone" }
+					]
+				},
+				"accountIdentifier": {
+					"type": "text",
+					"label": "Email address or phone number",
+					"maxLength": 254
+				},
+				"phoneCountryCode": {
+					"type": "text",
+					"label": "Phone country calling code",
+					"maxLength": 8,
+					"hidden": "data.accountType !== 'phone'"
+				},
+				"password": {
+					"type": "password",
+					"label": "Password",
+					"visible": false
+				}
+			}
+		}
+	}
+}
