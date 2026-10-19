@@ -1,7 +1,12 @@
 {
 	"iSmart account": "iSmart account",
+	"Cloud connection": "Cloud connection",
+	"Account credentials": "Account credentials",
+	"Status updates": "Status updates",
 	"To avoid possible session interference with the mobile app, use a separate iSmart account for ioBroker where possible. Share the vehicle with that account and grant the permissions needed for your intended use.": "To avoid possible session interference with the mobile app, use a separate iSmart account for ioBroker where possible. Share the vehicle with that account and grant the permissions needed for your intended use.",
-	"Region/backend code": "Region/backend code",
+	"Region": "Region",
+	"European Union": "European Union",
+	"Rest of World": "Rest of World",
 	"Cloud connectivity is not implemented yet. This value does not select a working backend.": "Cloud connectivity is not implemented yet. This value does not select a working backend.",
 	"Login type": "Login type",
 	"Email": "Email",

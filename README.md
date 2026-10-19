@@ -33,6 +33,7 @@ The adapter is not published yet. Install it through the ioBroker Admin adapter 
 ### **WORK IN PROGRESS**
 
 - (Voodoo2man) Initial Version
+- (Voodoo2man) Retried transient live vehicle status errors using SAIC event IDs.
 
 ## License
 

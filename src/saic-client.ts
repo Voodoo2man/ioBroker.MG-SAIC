@@ -461,6 +461,17 @@ export class SaicApiClient {
 				}
 				continue;
 			}
+			const returnCode = Number(envelope.code);
+			if (useEventId && eventId !== '0' && returnCode !== 0 && ![2, 3, 7].includes(returnCode)) {
+				if (Date.now() >= deadline) {
+					throw new Error(envelope.message || 'SAIC vehicle status timed out while waiting for vehicle data');
+				}
+				await new Promise(resolve => setTimeout(resolve, Math.min(1_000, Math.max(0, deadline - Date.now()))));
+				if (nextEventId) {
+					eventId = nextEventId;
+				}
+				continue;
+			}
 			break;
 		}
 

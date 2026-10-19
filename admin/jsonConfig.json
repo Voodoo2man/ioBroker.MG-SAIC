@@ -5,47 +5,101 @@
 		"account": {
 			"type": "panel",
 			"label": "iSmart account",
+			"innerStyle": {
+				"maxWidth": 1040,
+				"margin": "0 auto",
+				"padding": "8px 16px"
+			},
 			"items": {
 				"_accountWarning": {
 					"type": "staticText",
 					"icon": "warning",
-					"text": "To avoid possible session interference with the mobile app, use a separate iSmart account for ioBroker where possible. Share the vehicle with that account and grant the permissions needed for your intended use."
+					"text": "To avoid possible session interference with the mobile app, use a separate iSmart account for ioBroker where possible. Share the vehicle with that account and grant the permissions needed for your intended use.",
+					"xs": 12,
+					"sm": 12
+				},
+				"_connectionHeader": {
+					"type": "header",
+					"text": "Cloud connection",
+					"size": 5,
+					"xs": 12,
+					"sm": 12
 				},
 				"region": {
-					"type": "text",
-					"label": "Region/backend code",
-					"default": "EU"
+					"type": "select",
+					"label": "Region",
+					"default": "EU",
+					"options": [
+						{ "label": "European Union", "value": "EU" },
+						{ "label": "China", "value": "China" },
+						{ "label": "Australia", "value": "Australia" },
+						{ "label": "Brazil", "value": "Brazil" },
+						{ "label": "Israel", "value": "Israel" },
+						{ "label": "Turkey", "value": "Turkey" },
+						{ "label": "Thailand", "value": "Thailand" },
+						{ "label": "Rest of World", "value": "Rest of World" }
+					],
+					"xs": 12,
+					"sm": 6
 				},
 				"accountType": {
 					"type": "select",
 					"label": "Login type",
+					"xs": 12,
+					"sm": 6,
 					"options": [
 						{ "label": "Email", "value": "email" },
 						{ "label": "Phone number", "value": "phone" }
 					]
 				},
+				"_credentialsHeader": {
+					"type": "header",
+					"text": "Account credentials",
+					"size": 5,
+					"xs": 12,
+					"sm": 12
+				},
 				"accountIdentifier": {
 					"type": "text",
 					"label": "Email address or phone number",
-					"maxLength": 254
+					"maxLength": 254,
+					"xs": 12,
+					"sm": 12,
+					"md": 6
 				},
 				"phoneCountryCode": {
 					"type": "text",
 					"label": "Phone country calling code",
 					"maxLength": 8,
-					"hidden": "data.accountType !== 'phone'"
+					"hidden": "data.accountType !== 'phone'",
+					"xs": 12,
+					"sm": 12,
+					"md": 6
 				},
 				"password": {
 					"type": "password",
 					"label": "Password",
-					"visible": false
+					"visible": false,
+					"xs": 12,
+					"sm": 12,
+					"md": 6
+				},
+				"_statusHeader": {
+					"type": "header",
+					"text": "Status updates",
+					"size": 5,
+					"xs": 12,
+					"sm": 12
 				},
 				"pollIntervalSeconds": {
 					"type": "number",
 					"label": "Status polling interval (seconds)",
 					"default": 1800,
 					"min": 1,
-					"step": 1
+					"step": 1,
+					"xs": 12,
+					"sm": 12,
+					"md": 6
 				}
 			}
 		}
