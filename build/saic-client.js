@@ -408,8 +408,9 @@ class SaicApiClient {
       }
       responseHeaders = response.headers;
       const nextEventId = response.headers.get("event-id");
+      const responseMessage = typeof envelope.message === "string" ? envelope.message.replace(/[\r\n\t]/g, " ").slice(0, 200) : "none";
       this.debug(
-        `GET ${requestPath} for ${vin} returned SAIC code ${String(envelope.code)}, data keys: ${Object.keys((_a = envelope.data) != null ? _a : {}).join(", ") || "none"}, next event-id: ${nextEventId != null ? nextEventId : "none"}`
+        `GET ${requestPath} for ${vin} returned SAIC code ${String(envelope.code)}, message: ${responseMessage}, data keys: ${Object.keys((_a = envelope.data) != null ? _a : {}).join(", ") || "none"}, next event-id: ${nextEventId != null ? nextEventId : "none"}`
       );
       if (useEventId && Number(envelope.code) === 0 && envelope.data === void 0) {
         if (Date.now() >= deadline) {

@@ -182,7 +182,9 @@ describe('SaicApiClient vehicle status', () => {
 		const client = new SaicApiClient(
 			() =>
 				Promise.resolve(
-					new Response('{"code":0,"data":{"basicVehicleStatus":{"batteryVoltage":142,"lockStatus":1}}}'),
+					new Response(
+						'{"code":0,"message":"success","data":{"basicVehicleStatus":{"batteryVoltage":142,"lockStatus":1}}}',
+					),
 				),
 			Date.now,
 			undefined,
@@ -192,6 +194,7 @@ describe('SaicApiClient vehicle status', () => {
 		await client.getVehicleStatus(options, 'test-access-token', 'LSJWH4095RN166487');
 
 		expect(debugMessages.some(message => message.includes('SAIC code 0'))).to.equal(true);
+		expect(debugMessages.some(message => message.includes('message: success'))).to.equal(true);
 		expect(debugMessages.some(message => message.includes('timeout 5000ms'))).to.equal(true);
 		expect(debugMessages.some(message => message.includes('batteryVoltage, lockStatus'))).to.equal(true);
 		expect(debugMessages.join('\n')).not.to.contain('142');
