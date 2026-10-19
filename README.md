@@ -41,6 +41,7 @@ The adapter is not published yet. Install it through the ioBroker Admin adapter 
 - (Voodoo2man) Grouped vehicle status data points into functional subchannels.
 - (Voodoo2man) Created and repaired status objects with complete ioBroker state metadata.
 - (Voodoo2man) Displayed status timestamps as dates and retried timed-out live HTTP waits.
+- (Voodoo2man) Matched Home Assistant's live-status retries for transient transport failures.
 
 ## License
 

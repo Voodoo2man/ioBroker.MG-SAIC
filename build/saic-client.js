@@ -23,6 +23,8 @@ __export(saic_client_exports, {
 module.exports = __toCommonJS(saic_client_exports);
 var import_node_crypto = require("node:crypto");
 var import_saic_crypto = require("./saic-crypto");
+class RetryableVehicleStatusError extends Error {
+}
 const vehicleStatusFields = [
   "batteryVoltage",
   "bonnetStatus",
@@ -65,13 +67,16 @@ const vehicleStatusFields = [
 class SaicApiClient {
   fetchFunction;
   now;
+  wait;
   /**
    * @param fetchFunction HTTP transport, injectable for tests.
    * @param now Clock function returning milliseconds since epoch.
+   * @param wait Delay function used between retry attempts.
    */
-  constructor(fetchFunction = fetch, now = Date.now) {
+  constructor(fetchFunction = fetch, now = Date.now, wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds))) {
     this.fetchFunction = fetchFunction;
     this.now = now;
+    this.wait = wait;
   }
   /**
    * Sign in and return a validated access token.
@@ -262,7 +267,21 @@ class SaicApiClient {
    * @param vin Vehicle identification number.
    */
   async getVehicleStatus(options, accessToken, vin) {
-    return this.requestVehicleStatus(options, accessToken, vin, "/vehicle/status", true);
+    let lastError;
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      try {
+        return await this.requestVehicleStatus(options, accessToken, vin, "/vehicle/status", true);
+      } catch (error) {
+        if (!(error instanceof RetryableVehicleStatusError)) {
+          throw error;
+        }
+        lastError = error;
+        if (attempt < 5) {
+          await this.wait(15e3);
+        }
+      }
+    }
+    throw lastError;
   }
   /**
    * Retrieve the last status stored by SAIC without requesting a live vehicle response.
@@ -330,20 +349,26 @@ class SaicApiClient {
         response = await this.fetchFunction(requestUrl, {
           method: "GET",
           headers,
-          signal: AbortSignal.timeout(Math.max(1, Math.min(15e3, deadline - Date.now())))
+          signal: AbortSignal.timeout(
+            Math.max(1, Math.min(useEventId ? 5e3 : 15e3, deadline - Date.now()))
+          )
         });
       } catch (error) {
         const details = error instanceof Error ? error.message : "Unknown network error";
-        const isTimeout = error instanceof Error && (error.name === "TimeoutError" || /timed?\s*out|timeout/i.test(error.message));
-        if (useEventId && isTimeout && Date.now() < deadline) {
-          await new Promise((resolve) => setTimeout(resolve, Math.min(1e3, deadline - Date.now())));
-          continue;
-        }
-        throw new Error(`SAIC vehicle status request failed before a response was received: ${details}`);
+        throw new RetryableVehicleStatusError(
+          `SAIC vehicle status request failed before a response was received: ${details}`
+        );
       }
-      const responseText = await response.text();
+      let responseText;
+      try {
+        responseText = await response.text();
+      } catch (error) {
+        const details = error instanceof Error ? error.message : "Unknown network error";
+        throw new RetryableVehicleStatusError(`SAIC vehicle status response could not be read: ${details}`);
+      }
       if (!response.ok) {
-        throw new Error(`SAIC vehicle status failed with HTTP status ${response.status}`);
+        const ErrorType = response.status === 429 || response.status >= 500 ? RetryableVehicleStatusError : Error;
+        throw new ErrorType(`SAIC vehicle status failed with HTTP status ${response.status}`);
       }
       const responseTimestamp = response.headers.get("APP-SEND-DATE");
       const responseContentType = response.headers.get("ORIGINAL-CONTENT-TYPE");

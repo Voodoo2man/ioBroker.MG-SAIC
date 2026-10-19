@@ -313,19 +313,53 @@ describe('SaicApiClient vehicle status', () => {
 
 	it('retries timed-out live HTTP waits until a response is received', async () => {
 		let callCount = 0;
+		const waitDurations: number[] = [];
 		const timeout = new DOMException('The operation was aborted due to timeout', 'TimeoutError');
-		const client = new SaicApiClient(() => {
-			callCount += 1;
-			if (callCount === 1) {
-				return Promise.reject(timeout);
-			}
-			return Promise.resolve(new Response('{"code":0,"data":{"basicVehicleStatus":{"lockStatus":1}}}'));
-		});
+		const client = new SaicApiClient(
+			() => {
+				callCount += 1;
+				if (callCount === 1) {
+					return Promise.reject(timeout);
+				}
+				return Promise.resolve(new Response('{"code":0,"data":{"basicVehicleStatus":{"lockStatus":1}}}'));
+			},
+			Date.now,
+			milliseconds => {
+				waitDurations.push(milliseconds);
+				return Promise.resolve();
+			},
+		);
 
 		expect(await client.getVehicleStatus(options, 'test-access-token', 'LSJWH4095RN166487')).to.deep.equal({
 			basicVehicleStatus: { lockStatus: 1 },
 		});
 		expect(callCount).to.equal(2);
+		expect(waitDurations).to.deep.equal([15_000]);
+	});
+
+	it('retries live transport failures like other coordinator errors', async () => {
+		let callCount = 0;
+		const waitDurations: number[] = [];
+		const client = new SaicApiClient(
+			() => {
+				callCount += 1;
+				if (callCount === 1) {
+					return Promise.reject(new Error('socket hang up'));
+				}
+				return Promise.resolve(new Response('{"code":0,"data":{"basicVehicleStatus":{"lockStatus":1}}}'));
+			},
+			Date.now,
+			milliseconds => {
+				waitDurations.push(milliseconds);
+				return Promise.resolve();
+			},
+		);
+
+		expect(await client.getVehicleStatus(options, 'test-access-token', 'LSJWH4095RN166487')).to.deep.equal({
+			basicVehicleStatus: { lockStatus: 1 },
+		});
+		expect(callCount).to.equal(2);
+		expect(waitDurations).to.deep.equal([15_000]);
 	});
 
 	it('requests SAIC cached status without an event id', async () => {
@@ -355,7 +389,15 @@ describe('SaicApiClient vehicle status', () => {
 	});
 
 	it('preserves network failure details for status requests', async () => {
-		const client = new SaicApiClient(() => Promise.reject(new Error('getaddrinfo ENOTFOUND gateway.example')));
+		let callCount = 0;
+		const client = new SaicApiClient(
+			() => {
+				callCount += 1;
+				return Promise.reject(new Error('getaddrinfo ENOTFOUND gateway.example'));
+			},
+			Date.now,
+			() => Promise.resolve(),
+		);
 
 		try {
 			await client.getVehicleStatus(options, 'test-access-token', 'LSJWH4095RN166487');
@@ -363,5 +405,6 @@ describe('SaicApiClient vehicle status', () => {
 		} catch (error) {
 			expect((error as Error).message).to.contain('getaddrinfo ENOTFOUND gateway.example');
 		}
+		expect(callCount).to.equal(5);
 	});
 });
