@@ -60,7 +60,7 @@
 		"platform": "Javascript/Node.js",
 		"icon": "mg-saic.png",
 		"enabled": true,
-		"extIcon": "https://raw.githubusercontent.com/Voodoo2man/ioBroker.MG-SAIC/main/admin/mg-saic.png",
+		"extIcon": "https://raw.githubusercontent.com/Voodoo2man/ioBroker.MG-SAIC/feat/initial-mg-saic/admin/MG%20Icon.png",
 		"readme": "https://github.com/Voodoo2man/ioBroker.MG-SAIC/blob/main/README.md",
 		"loglevel": "info",
 		"tier": 3,

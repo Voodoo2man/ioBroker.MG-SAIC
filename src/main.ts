@@ -57,6 +57,14 @@ class MgSaic extends utils.Adapter {
 					statusErrors.push(message);
 					this.log.warn(`Could not retrieve current status for vehicle ${vehicle.vin}: ${details}`);
 				}
+				try {
+					const status = await client.getCachedVehicleStatus(loginOptions, login.accessToken, vehicle.vin);
+					await this.createVehicleStatusObjects(vehicle.vin, status, 'cachedStatus', 'SAIC cached status');
+				} catch (error) {
+					const details = error instanceof Error ? error.message : 'Unknown error';
+					statusErrors.push(`Cached vehicle status request failed for ${vehicle.vin}: ${details}`);
+					this.log.warn(`Could not retrieve cached status for vehicle ${vehicle.vin}: ${details}`);
+				}
 			}
 			await this.setState('info.lastError', statusErrors.join('; '), true);
 		} catch {
@@ -67,17 +75,25 @@ class MgSaic extends utils.Adapter {
 		}
 	}
 
-	private async createVehicleStatusObjects(vin: string, status: SaicVehicleStatus): Promise<void> {
-		const statusId = `vehicles.${vin}.status`;
+	private async createVehicleStatusObjects(
+		vin: string,
+		status: SaicVehicleStatus,
+		channel = 'status',
+		channelName = 'Current status',
+	): Promise<void> {
+		const statusId = `vehicles.${vin}.${channel}`;
 		await this.setObjectNotExistsAsync(statusId, {
 			type: 'channel',
-			common: { name: 'Current status' },
+			common: { name: channelName },
 			native: {},
 		});
 
 		const values: Record<string, number> = { ...status.basicVehicleStatus };
 		if (status.statusTime !== undefined) {
 			values.statusTime = status.statusTime;
+		}
+		if (status.onlineStatus !== undefined) {
+			values.onlineStatus = status.onlineStatus;
 		}
 		for (const [key, value] of Object.entries(values)) {
 			await this.setObjectNotExistsAsync(`${statusId}.${key}`, {

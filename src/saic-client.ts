@@ -58,6 +58,8 @@ export interface SaicVehicle {
 export interface SaicVehicleStatus {
 	/** Raw status timestamp returned by the service. */
 	statusTime?: number;
+	/** Online flag returned by SAIC's cached status endpoint. */
+	onlineStatus?: number;
 	/** Allowlisted numeric basic vehicle status values. */
 	basicVehicleStatus: Record<string, number>;
 }
@@ -74,6 +76,7 @@ interface SaicApiEnvelope {
 		vinList?: unknown;
 		basicVehicleStatus?: unknown;
 		statusTime?: unknown;
+		onlineStatus?: unknown;
 	};
 }
 
@@ -344,8 +347,41 @@ export class SaicApiClient {
 		accessToken: string,
 		vin: string,
 	): Promise<SaicVehicleStatus> {
+		return this.requestVehicleStatus(options, accessToken, vin, '/vehicle/status', true);
+	}
+
+	/**
+	 * Retrieve the last status stored by SAIC without requesting a live vehicle response.
+	 *
+	 * @param options Account region and tenant settings.
+	 * @param accessToken Token returned by {@link login}.
+	 * @param vin Vehicle identification number.
+	 */
+	public async getCachedVehicleStatus(
+		options: SaicLoginOptions,
+		accessToken: string,
+		vin: string,
+	): Promise<SaicVehicleStatus> {
+		return this.requestVehicleStatus(options, accessToken, vin, '/vehicle/status/cache', false);
+	}
+
+	/**
+	 * Send a status request and normalize its response.
+	 *
+	 * @param options Account region and tenant settings.
+	 * @param accessToken Token returned by {@link login}.
+	 * @param vin Vehicle identification number.
+	 * @param requestPath SAIC status endpoint path.
+	 * @param useEventId Whether this request asks the vehicle for a live response.
+	 */
+	private async requestVehicleStatus(
+		options: SaicLoginOptions,
+		accessToken: string,
+		vin: string,
+		requestPath: string,
+		useEventId: boolean,
+	): Promise<SaicVehicleStatus> {
 		const timestamp = String(this.now());
-		const requestPath = '/vehicle/status';
 		const contentType = 'application/json';
 		const query = new URLSearchParams({
 			vin: createHash('sha256').update(vin, 'utf8').digest('hex'),
@@ -372,8 +408,10 @@ export class SaicApiClient {
 			'User-Type': 'app',
 			'User-Agent': 'Europe/2.1.0 (iPad; iOS 18.5; Scale/2.00)',
 			'blade-auth': accessToken,
-			'event-id': '0',
 		};
+		if (useEventId) {
+			headers['event-id'] = '0';
+		}
 
 		let response: Response;
 		try {
@@ -417,12 +455,14 @@ export class SaicApiClient {
 			Array.isArray(envelope.data.basicVehicleStatus)
 		) {
 			const responseKeys = Object.keys(envelope).join(', ') || 'none';
+			const dataType =
+				envelope.data === null ? 'null' : Array.isArray(envelope.data) ? 'array' : typeof envelope.data;
 			const dataKeys =
 				envelope.data && typeof envelope.data === 'object' && !Array.isArray(envelope.data)
 					? Object.keys(envelope.data).join(', ') || 'none'
 					: 'unavailable';
 			throw new Error(
-				`SAIC vehicle status response did not contain basic status data (code: ${String(envelope.code)}, response keys: ${responseKeys}, data keys: ${dataKeys})`,
+				`SAIC vehicle status response did not contain basic status data (code: ${String(envelope.code)}, response keys: ${responseKeys}, data type: ${dataType}, data keys: ${dataKeys})`,
 			);
 		}
 
@@ -439,6 +479,9 @@ export class SaicApiClient {
 			basicVehicleStatus,
 			...(typeof envelope.data.statusTime === 'number' && Number.isFinite(envelope.data.statusTime)
 				? { statusTime: envelope.data.statusTime }
+				: {}),
+			...(typeof envelope.data.onlineStatus === 'number' && Number.isFinite(envelope.data.onlineStatus)
+				? { onlineStatus: envelope.data.onlineStatus }
 				: {}),
 		};
 	}

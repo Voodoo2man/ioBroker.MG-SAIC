@@ -2,9 +2,11 @@
 
 <img src="MG.png" alt="MG" width="314">
 
-**The adapter foundation is under development. Global SAIC OAuth login, vehicle discovery, and a current vehicle-status snapshot are implemented. Automatic polling, commands, and India TAP are not implemented yet.**
+**The adapter is currently at its initial version (0.0.1) and remains under development. Global SAIC OAuth login, vehicle discovery, and a current vehicle-status snapshot are implemented. Automatic polling, commands, and India TAP are not implemented yet.**
 
 This is an unofficial community project and is not affiliated with or endorsed by MG, SAIC, or the iSmart service.
+
+MG, SAIC, and iSmart are trademarks of their respective owners. Their names are used solely to identify the vehicles and services supported by this community project.
 
 ## Account setup
 
@@ -17,8 +19,8 @@ The Admin form accepts an email address or phone number, an optional phone count
 - The adapter validates required account fields and displays initialization status under `info`.
 - For supported global regions, the adapter authenticates with SAIC, retrieves the account's vehicle list, and reports connection status in `info.connection` and `info.lastError`.
 - Each discovered vehicle has a `vehicles.<VIN>` device with its VIN and available name, brand, model, series, year, color, and account flags.
-- At startup, the adapter requests one current status snapshot for each vehicle. Available numeric values are stored as read-only states under `vehicles.<VIN>.status`; `statusTime` contains the raw timestamp returned by SAIC.
-- Status values are raw API values and are not converted or assigned units. The adapter does not refresh them automatically; polling, controls, persistence, and India TAP are not available yet.
+- At startup, the adapter requests both a live status and SAIC's last cached status for each vehicle. Available numeric values are stored separately as read-only states under `vehicles.<VIN>.status` and `vehicles.<VIN>.cachedStatus`.
+- Status values are raw API values and are not converted or assigned units. Neither status is refreshed automatically; polling, controls, persistence, and India TAP are not available yet.
 - Home Assistant is not a runtime dependency.
 
 ## Installation
@@ -29,15 +31,13 @@ The adapter is not published yet. Install it through the ioBroker Admin adapter 
 
 ### **WORK IN PROGRESS**
 
-- (Voodoo2man) Added the initial TypeScript adapter foundation, secure account settings, and configuration validation.
-- (Voodoo2man) Added regional SAIC OAuth login, account connection status, vehicle discovery, and a current status snapshot for each vehicle; automatic polling, controls, and India TAP remain unavailable.
-- (Voodoo2man) Added detailed error messages for failed vehicle status requests.
+- (Voodoo2man) Initial Version (0.0.1)
 
 ## License
 
 MIT License
 
-Copyright (c) 2026 Voodoo2man <62031459+Voodoo2man@users.noreply.github.com>
+Copyright (c) 2026 Voodoo2man Voodoo2man@hotmail.de
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

@@ -182,9 +182,48 @@ describe('SaicApiClient vehicle status', () => {
 			expect.fail('Expected missing basicVehicleStatus to be rejected');
 		} catch (error) {
 			expect((error as Error).message).to.contain(
-				'SAIC vehicle status response did not contain basic status data (code: 0, response keys: code, data, data keys: none)',
+				'SAIC vehicle status response did not contain basic status data (code: 0, response keys: code, data, data type: object, data keys: none)',
 			);
 		}
+	});
+
+	it('reports the JSON type when SAIC status data is null', async () => {
+		const client = new SaicApiClient(() =>
+			Promise.resolve(new Response('{"code":0,"message":"success","data":null}')),
+		);
+
+		try {
+			await client.getVehicleStatus(options, 'test-access-token', 'LSJWH4095RN166487');
+			expect.fail('Expected null status data to be rejected');
+		} catch (error) {
+			expect((error as Error).message).to.contain('response keys: code, message, data, data type: null');
+		}
+	});
+
+	it('requests SAIC cached status without an event id', async () => {
+		let requestUrl: URL | undefined;
+		let requestInit: RequestInit | undefined;
+		const client = new SaicApiClient((input, init) => {
+			requestUrl = input instanceof URL ? input : new URL(typeof input === 'string' ? input : input.url);
+			requestInit = init;
+			return Promise.resolve(
+				new Response(
+					JSON.stringify({
+						code: 0,
+						data: { basicVehicleStatus: { lockStatus: 1 }, statusTime: 1_700_000_000, onlineStatus: 1 },
+					}),
+				),
+			);
+		});
+
+		expect(await client.getCachedVehicleStatus(options, 'test-access-token', 'LSJWH4095RN166487')).to.deep.equal({
+			basicVehicleStatus: { lockStatus: 1 },
+			statusTime: 1_700_000_000,
+			onlineStatus: 1,
+		});
+		expect(requestUrl?.pathname).to.equal('/api.app/v1/vehicle/status/cache');
+		expect(requestUrl?.searchParams.get('vehStatusReqType')).to.equal('2');
+		expect(new Headers(requestInit?.headers).has('event-id')).to.equal(false);
 	});
 
 	it('preserves network failure details for status requests', async () => {

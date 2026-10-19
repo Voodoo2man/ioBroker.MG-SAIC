@@ -259,9 +259,30 @@ class SaicApiClient {
    * @param vin Vehicle identification number.
    */
   async getVehicleStatus(options, accessToken, vin) {
+    return this.requestVehicleStatus(options, accessToken, vin, "/vehicle/status", true);
+  }
+  /**
+   * Retrieve the last status stored by SAIC without requesting a live vehicle response.
+   *
+   * @param options Account region and tenant settings.
+   * @param accessToken Token returned by {@link login}.
+   * @param vin Vehicle identification number.
+   */
+  async getCachedVehicleStatus(options, accessToken, vin) {
+    return this.requestVehicleStatus(options, accessToken, vin, "/vehicle/status/cache", false);
+  }
+  /**
+   * Send a status request and normalize its response.
+   *
+   * @param options Account region and tenant settings.
+   * @param accessToken Token returned by {@link login}.
+   * @param vin Vehicle identification number.
+   * @param requestPath SAIC status endpoint path.
+   * @param useEventId Whether this request asks the vehicle for a live response.
+   */
+  async requestVehicleStatus(options, accessToken, vin, requestPath, useEventId) {
     var _a;
     const timestamp = String(this.now());
-    const requestPath = "/vehicle/status";
     const contentType = "application/json";
     const query = new URLSearchParams({
       vin: (0, import_node_crypto.createHash)("sha256").update(vin, "utf8").digest("hex"),
@@ -287,9 +308,11 @@ class SaicApiClient {
       "tenant-id": options.tenantId,
       "User-Type": "app",
       "User-Agent": "Europe/2.1.0 (iPad; iOS 18.5; Scale/2.00)",
-      "blade-auth": accessToken,
-      "event-id": "0"
+      "blade-auth": accessToken
     };
+    if (useEventId) {
+      headers["event-id"] = "0";
+    }
     let response;
     try {
       const baseUrl = options.baseUrl.endsWith("/") ? options.baseUrl : `${options.baseUrl}/`;
@@ -321,9 +344,10 @@ class SaicApiClient {
     }
     if (!((_a = envelope.data) == null ? void 0 : _a.basicVehicleStatus) || typeof envelope.data.basicVehicleStatus !== "object" || Array.isArray(envelope.data.basicVehicleStatus)) {
       const responseKeys = Object.keys(envelope).join(", ") || "none";
+      const dataType = envelope.data === null ? "null" : Array.isArray(envelope.data) ? "array" : typeof envelope.data;
       const dataKeys = envelope.data && typeof envelope.data === "object" && !Array.isArray(envelope.data) ? Object.keys(envelope.data).join(", ") || "none" : "unavailable";
       throw new Error(
-        `SAIC vehicle status response did not contain basic status data (code: ${String(envelope.code)}, response keys: ${responseKeys}, data keys: ${dataKeys})`
+        `SAIC vehicle status response did not contain basic status data (code: ${String(envelope.code)}, response keys: ${responseKeys}, data type: ${dataType}, data keys: ${dataKeys})`
       );
     }
     const rawStatus = envelope.data.basicVehicleStatus;
@@ -336,7 +360,8 @@ class SaicApiClient {
     }
     return {
       basicVehicleStatus,
-      ...typeof envelope.data.statusTime === "number" && Number.isFinite(envelope.data.statusTime) ? { statusTime: envelope.data.statusTime } : {}
+      ...typeof envelope.data.statusTime === "number" && Number.isFinite(envelope.data.statusTime) ? { statusTime: envelope.data.statusTime } : {},
+      ...typeof envelope.data.onlineStatus === "number" && Number.isFinite(envelope.data.onlineStatus) ? { onlineStatus: envelope.data.onlineStatus } : {}
     };
   }
 }
