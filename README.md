@@ -19,7 +19,7 @@ The Admin form accepts an email address or phone number, an optional phone count
 - The adapter validates required account fields and displays initialization status under `info`.
 - For supported global regions, the adapter authenticates with SAIC, retrieves the account's vehicle list, and reports connection status in `info.connection` and `info.lastError`.
 - Each discovered vehicle has a `vehicles.<VIN>` device with its VIN and available name, brand, model, series, year, color, and account flags.
-- The adapter requests both a live status and SAIC's last cached status for each vehicle at startup and at the configured interval. Available numeric values are stored separately as read-only states under `vehicles.<VIN>.status` and `vehicles.<VIN>.cachedStatus`.
+- The adapter requests both a live status and SAIC's last cached status for each vehicle at startup and at the configured interval. Values are grouped under `vehicles.<VIN>.status.<group>` and `vehicles.<VIN>.cachedStatus.<group>` channels (for example, `driving`, `climate`, `tires`, and `energy`). Existing flat status states are moved to the grouped paths when refreshed.
 - Configure the automatic status polling interval in seconds in the adapter settings (default: 1800 seconds). Write `true` to `commands.refresh` to request an immediate refresh.
 - Status measurements are converted from documented raw API scales to display units where known (including km, V, and bar); binary status fields are exposed as boolean indicators. Other measurements retain their API values. Persistence and India TAP are not available yet.
 - Home Assistant is not a runtime dependency.
@@ -38,6 +38,7 @@ The adapter is not published yet. Install it through the ioBroker Admin adapter 
 - (Voodoo2man) Retried one initial live status timeout when SAIC omitted the event ID.
 - (Voodoo2man) Added localized Home Assistant-style names for vehicle status data points.
 - (Voodoo2man) Added speed, vehicle alarm status, and tyre monitor status data points from SAIC vehicle status.
+- (Voodoo2man) Grouped vehicle status data points into functional subchannels.
 
 ## License
 

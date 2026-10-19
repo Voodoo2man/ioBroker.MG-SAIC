@@ -2,7 +2,7 @@ import * as utils from '@iobroker/adapter-core';
 import { DEFAULT_POLL_INTERVAL_SECONDS, validateConfig, type MgSaicConfig } from './config';
 import { SaicApiClient, type SaicVehicle, type SaicVehicleStatus } from './saic-client';
 import { resolveSaicRegion } from './regions';
-import { getVehicleStatusMetadata, normalizeVehicleStatusValue } from './status-metadata';
+import { getVehicleStatusGroup, getVehicleStatusMetadata, normalizeVehicleStatusValue } from './status-metadata';
 
 class MgSaic extends utils.Adapter {
 	public constructor(options: Partial<utils.AdapterOptions> = {}) {
@@ -158,8 +158,16 @@ class MgSaic extends utils.Adapter {
 			values.onlineStatus = status.onlineStatus;
 		}
 		for (const [key, value] of Object.entries(values)) {
+			const group = getVehicleStatusGroup(key);
+			const groupId = `${statusId}.${group}`;
+			await this.setObjectNotExistsAsync(groupId, {
+				type: 'channel',
+				common: { name: group },
+				native: {},
+			});
 			const metadata = getVehicleStatusMetadata(key);
-			await this.extendObjectAsync(`${statusId}.${key}`, {
+			const stateId = `${groupId}.${key}`;
+			await this.extendObjectAsync(stateId, {
 				common: {
 					name: metadata.name,
 					type: metadata.type,
@@ -167,7 +175,8 @@ class MgSaic extends utils.Adapter {
 					...(metadata.unit ? { unit: metadata.unit } : {}),
 				},
 			});
-			await this.setStateAsync(`${statusId}.${key}`, { val: normalizeVehicleStatusValue(key, value), ack: true });
+			await this.setStateAsync(stateId, { val: normalizeVehicleStatusValue(key, value), ack: true });
+			await this.delObjectAsync(`${statusId}.${key}`);
 		}
 	}
 

@@ -1,7 +1,18 @@
 import { expect } from 'chai';
-import { getVehicleStatusMetadata, normalizeVehicleStatusValue } from './status-metadata';
+import { getVehicleStatusGroup, getVehicleStatusMetadata, normalizeVehicleStatusValue } from './status-metadata';
 
 describe('getVehicleStatusMetadata', () => {
+	it('groups status datapoints by vehicle function', () => {
+		expect(getVehicleStatusGroup('speed')).to.equal('driving');
+		expect(getVehicleStatusGroup('driverWindow')).to.equal('access');
+		expect(getVehicleStatusGroup('interiorTemperature')).to.equal('climate');
+		expect(getVehicleStatusGroup('frontLeftTyrePressure')).to.equal('tires');
+		expect(getVehicleStatusGroup('sideLightStatus')).to.equal('lighting');
+		expect(getVehicleStatusGroup('batteryVoltage')).to.equal('energy');
+		expect(getVehicleStatusGroup('wheelTyreMonitorStatus')).to.equal('tires');
+		expect(getVehicleStatusGroup('statusTime')).to.equal('general');
+	});
+
 	it('marks binary vehicle states as boolean indicators', () => {
 		for (const key of ['driverDoor', 'lockStatus', 'engineStatus', 'onlineStatus']) {
 			const metadata = getVehicleStatusMetadata(key);

@@ -24,6 +24,35 @@ type LocalizedStatusName = {
 	'zh-cn': string;
 };
 
+export type VehicleStatusGroup = 'driving' | 'access' | 'climate' | 'tires' | 'lighting' | 'energy' | 'general';
+
+/**
+ * Return the functional channel for a vehicle status field.
+ *
+ * @param key SAIC vehicle status field name.
+ */
+export function getVehicleStatusGroup(key: string): VehicleStatusGroup {
+	if (['currentJourneyDistance', 'engineStatus', 'handBrake', 'mileage', 'speed'].includes(key)) {
+		return 'driving';
+	}
+	if (/Door|Window|bonnetStatus|bootStatus|lockStatus/.test(key)) {
+		return 'access';
+	}
+	if (/Temperature|Climate|SeatHeat|steeringHeat|steeringWheelHeat/.test(key)) {
+		return 'climate';
+	}
+	if (/Tyre|wheelTyre/.test(key)) {
+		return 'tires';
+	}
+	if (/Beam|Light/.test(key)) {
+		return 'lighting';
+	}
+	if (/battery|Battery|fuel|Fuel|Range|range|Soc|SOC|Charging|charging|ElecRng|elecRng/i.test(key)) {
+		return 'energy';
+	}
+	return 'general';
+}
+
 const statusNames: Record<string, LocalizedStatusName> = {
 	batteryVoltage: {
 		en: 'Auxiliary battery voltage',
