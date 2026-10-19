@@ -111,28 +111,10 @@ class MgSaic extends utils.Adapter {
           break;
         }
         try {
-          this.log.debug(`Refreshing cached status for ${vehicle.vin}`);
-          const status = await this.client.getCachedVehicleStatus(
-            this.loginOptions,
-            this.accessToken,
-            vehicle.vin
-          );
-          this.log.debug(
-            `Received cached status for ${vehicle.vin}: ${Object.keys(status.basicVehicleStatus).length} basic fields, statusTime ${(_a = status.statusTime) != null ? _a : "missing"}, onlineStatus ${(_b = status.onlineStatus) != null ? _b : "missing"}`
-          );
-          await this.createVehicleStatusObjects(vehicle.vin, status, "cachedStatus", "SAIC cached status");
-          this.log.debug(`Created/updated cached status objects for ${vehicle.vin}`);
-        } catch (error) {
-          const details = error instanceof Error ? error.message : "Unknown error";
-          statusErrors.push(`Cached vehicle status request failed for ${vehicle.vin}: ${details}`);
-          this.log.debug(`Cached status refresh or object update failed for ${vehicle.vin}: ${details}`);
-          this.log.warn(`Could not retrieve cached status for vehicle ${vehicle.vin}: ${details}`);
-        }
-        try {
           this.log.debug(`Refreshing live status for ${vehicle.vin}`);
           const status = await this.client.getVehicleStatus(this.loginOptions, this.accessToken, vehicle.vin);
           this.log.debug(
-            `Received live status for ${vehicle.vin}: ${Object.keys(status.basicVehicleStatus).length} basic fields, statusTime ${(_c = status.statusTime) != null ? _c : "missing"}`
+            `Received live status for ${vehicle.vin}: ${Object.keys(status.basicVehicleStatus).length} basic fields, statusTime ${(_a = status.statusTime) != null ? _a : "missing"}`
           );
           await this.createVehicleStatusObjects(vehicle.vin, status);
           this.log.debug(`Created/updated live status objects for ${vehicle.vin}`);
@@ -141,6 +123,29 @@ class MgSaic extends utils.Adapter {
           statusErrors.push(`Vehicle status request failed for ${vehicle.vin}: ${details}`);
           this.log.debug(`Live status refresh or object update failed for ${vehicle.vin}: ${details}`);
           this.log.warn(`Could not retrieve current status for vehicle ${vehicle.vin}: ${details}`);
+          try {
+            this.log.debug(`Refreshing cached status as fallback for ${vehicle.vin}`);
+            const status = await this.client.getCachedVehicleStatus(
+              this.loginOptions,
+              this.accessToken,
+              vehicle.vin
+            );
+            this.log.debug(
+              `Received cached status for ${vehicle.vin}: ${Object.keys(status.basicVehicleStatus).length} basic fields, statusTime ${(_b = status.statusTime) != null ? _b : "missing"}, onlineStatus ${(_c = status.onlineStatus) != null ? _c : "missing"}`
+            );
+            await this.createVehicleStatusObjects(
+              vehicle.vin,
+              status,
+              "cachedStatus",
+              "SAIC cached status"
+            );
+            this.log.debug(`Created/updated cached status objects for ${vehicle.vin}`);
+          } catch (cacheError) {
+            const cacheDetails = cacheError instanceof Error ? cacheError.message : "Unknown error";
+            statusErrors.push(`Cached vehicle status request failed for ${vehicle.vin}: ${cacheDetails}`);
+            this.log.debug(`Cached fallback or object update failed for ${vehicle.vin}: ${cacheDetails}`);
+            this.log.warn(`Could not retrieve cached status for vehicle ${vehicle.vin}: ${cacheDetails}`);
+          }
         }
       }
       if (!this.stopping) {
