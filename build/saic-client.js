@@ -127,6 +127,93 @@ class SaicApiClient {
     }
     return { accessToken, expiresIn };
   }
+  /**
+   * Retrieve vehicles linked to the authenticated account.
+   *
+   * @param options Account region and tenant settings.
+   * @param accessToken Token returned by {@link login}.
+   */
+  async listVehicles(options, accessToken) {
+    var _a;
+    const timestamp = String(this.now());
+    const requestPath = "/vehicle/list";
+    const contentType = "application/json";
+    const encryptedBody = "";
+    const headers = {
+      Accept: "application/json",
+      "Accept-Encoding": "gzip",
+      "Content-Type": `${contentType};charset=utf-8`,
+      "ORIGINAL-CONTENT-TYPE": contentType,
+      "APP-SEND-DATE": timestamp,
+      "APP-CONTENT-ENCRYPTED": "1",
+      "APP-LANGUAGE-TYPE": "en",
+      "APP-VERIFICATION-STRING": (0, import_saic_crypto.createSaicRequestSignature)(
+        requestPath,
+        options.tenantId,
+        accessToken,
+        timestamp,
+        contentType,
+        encryptedBody
+      ),
+      REGION: options.regionCode,
+      "tenant-id": options.tenantId,
+      "User-Type": "app",
+      "User-Agent": "Europe/2.1.0 (iPad; iOS 18.5; Scale/2.00)",
+      "blade-auth": accessToken
+    };
+    let response;
+    try {
+      const baseUrl = options.baseUrl.endsWith("/") ? options.baseUrl : `${options.baseUrl}/`;
+      const requestUrl = new URL(requestPath.replace(/^\/+/, ""), baseUrl);
+      response = await this.fetchFunction(requestUrl, {
+        method: "GET",
+        headers,
+        signal: AbortSignal.timeout(15e3)
+      });
+    } catch {
+      throw new Error("SAIC vehicle list request failed before a response was received");
+    }
+    const responseText = await response.text();
+    if (!response.ok) {
+      throw new Error(`SAIC vehicle list failed with HTTP status ${response.status}`);
+    }
+    const responseTimestamp = response.headers.get("APP-SEND-DATE");
+    const responseContentType = response.headers.get("ORIGINAL-CONTENT-TYPE");
+    const decodedBody = responseTimestamp && responseContentType ? (0, import_saic_crypto.decryptSaicResponseBody)(responseText, responseTimestamp, responseContentType) : responseText;
+    let envelope;
+    try {
+      envelope = JSON.parse(decodedBody);
+    } catch {
+      throw new Error("SAIC vehicle list returned an invalid response");
+    }
+    if (Number(envelope.code) !== 0) {
+      throw new Error(envelope.message || "SAIC vehicle list request was rejected");
+    }
+    if (!Array.isArray((_a = envelope.data) == null ? void 0 : _a.vinList)) {
+      throw new Error("SAIC vehicle list response did not contain a vehicle list");
+    }
+    return envelope.data.vinList.flatMap((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        return [];
+      }
+      const record = item;
+      if (typeof record.vin !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(record.vin)) {
+        return [];
+      }
+      const vehicle = { vin: record.vin };
+      for (const key of ["name", "brandName", "modelName", "series", "modelYear", "colorName"]) {
+        if (typeof record[key] === "string") {
+          vehicle[key] = record[key];
+        }
+      }
+      for (const key of ["isCurrentVehicle", "isSubaccount"]) {
+        if (typeof record[key] === "boolean") {
+          vehicle[key] = record[key];
+        }
+      }
+      return [vehicle];
+    });
+  }
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {

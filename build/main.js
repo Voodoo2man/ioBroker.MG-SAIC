@@ -50,21 +50,64 @@ class MgSaic extends utils.Adapter {
       return;
     }
     try {
-      await new import_saic_client.SaicApiClient().login({
+      const client = new import_saic_client.SaicApiClient();
+      const loginOptions = {
         ...region,
         accountType: config.accountType,
         accountIdentifier: (_c = config.accountIdentifier) != null ? _c : "",
         phoneCountryCode: config.phoneCountryCode,
         password: (_d = config.password) != null ? _d : ""
-      });
+      };
+      const login = await client.login(loginOptions);
+      const vehicles = await client.listVehicles(loginOptions, login.accessToken);
+      for (const vehicle of vehicles) {
+        await this.createVehicleObjects(vehicle);
+      }
       await this.setState("info.connection", true, true);
       await this.setState("info.lastError", "", true);
-      this.log.info("SAIC account authenticated. Vehicle discovery is not implemented yet.");
+      this.log.info(`SAIC account authenticated; discovered ${vehicles.length} vehicle(s).`);
     } catch {
       const error = "SAIC login failed; check the selected region, account credentials, or connectivity";
       await this.setState("info.connection", false, true);
       await this.setState("info.lastError", error, true);
       this.log.warn(error);
+    }
+  }
+  async createVehicleObjects(vehicle) {
+    const deviceId = `vehicles.${vehicle.vin}`;
+    const values = {
+      vin: vehicle.vin,
+      name: vehicle.name,
+      brandName: vehicle.brandName,
+      modelName: vehicle.modelName,
+      series: vehicle.series,
+      modelYear: vehicle.modelYear,
+      colorName: vehicle.colorName,
+      isCurrentVehicle: vehicle.isCurrentVehicle,
+      isSubaccount: vehicle.isSubaccount
+    };
+    await this.setObjectNotExistsAsync(deviceId, {
+      type: "device",
+      common: { name: vehicle.name || vehicle.modelName || vehicle.vin },
+      native: {}
+    });
+    for (const [key, value] of Object.entries(values)) {
+      if (value === void 0) {
+        continue;
+      }
+      const isBoolean = typeof value === "boolean";
+      await this.setObjectNotExistsAsync(`${deviceId}.${key}`, {
+        type: "state",
+        common: {
+          name: key,
+          type: isBoolean ? "boolean" : "string",
+          role: isBoolean ? "indicator" : key === "vin" ? "text" : "info.name",
+          read: true,
+          write: false
+        },
+        native: {}
+      });
+      await this.setStateAsync(`${deviceId}.${key}`, { val: value, ack: true });
     }
   }
   onUnload(callback) {

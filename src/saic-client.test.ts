@@ -73,3 +73,55 @@ describe('SaicApiClient login', () => {
 		}
 	});
 });
+
+describe('SaicApiClient vehicle list', () => {
+	const options = {
+		baseUrl: 'https://gateway-mg-eu.soimt.com/api.app/v1/',
+		regionCode: 'eu',
+		tenantId: '459771',
+		accountType: 'email' as const,
+		accountIdentifier: 'driver@example.com',
+		password: 'test-password',
+	};
+
+	it('sends the access token and validates vehicles from the SAIC response', async () => {
+		let requestUrl: URL | undefined;
+		let requestInit: RequestInit | undefined;
+		const fetchFunction: typeof fetch = (input, init) => {
+			requestUrl = input instanceof URL ? input : new URL(input instanceof Request ? input.url : input);
+			requestInit = init;
+			return Promise.resolve(
+				new Response(
+					JSON.stringify({
+						code: 0,
+						data: {
+							vinList: [
+								{ vin: 'LSJWH4099NS012345', name: 'MG4', modelName: 'MG4', modelYear: '2023' },
+								{ vin: '../invalid', name: 'invalid' },
+							],
+						},
+					}),
+				),
+			);
+		};
+		const client = new SaicApiClient(fetchFunction, () => 1_700_000_000_123);
+
+		expect(await client.listVehicles(options, 'test-access-token')).to.deep.equal([
+			{ vin: 'LSJWH4099NS012345', name: 'MG4', modelName: 'MG4', modelYear: '2023' },
+		]);
+		expect(requestUrl?.href).to.equal('https://gateway-mg-eu.soimt.com/api.app/v1/vehicle/list');
+		expect(requestInit?.method).to.equal('GET');
+		expect(new Headers(requestInit?.headers).get('blade-auth')).to.equal('test-access-token');
+	});
+
+	it('rejects an unexpected vehicle-list response shape', async () => {
+		const client = new SaicApiClient(() => Promise.resolve(new Response('{"code":0,"data":{}}')));
+
+		try {
+			await client.listVehicles(options, 'test-access-token');
+			expect.fail('Expected missing vinList to be rejected');
+		} catch (error) {
+			expect((error as Error).message).to.equal('SAIC vehicle list response did not contain a vehicle list');
+		}
+	});
+});

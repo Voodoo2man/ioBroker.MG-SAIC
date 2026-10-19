@@ -31,6 +31,28 @@ export interface SaicLoginResult {
 	expiresIn: number;
 }
 
+/** Basic vehicle information returned by the SAIC vehicle list endpoint. */
+export interface SaicVehicle {
+	/** Vehicle identification number used as the object ID. */
+	vin: string;
+	/** User-assigned vehicle name. */
+	name?: string;
+	/** Vehicle brand returned by the account API. */
+	brandName?: string;
+	/** Vehicle model name. */
+	modelName?: string;
+	/** Model series. */
+	series?: string;
+	/** Model year. */
+	modelYear?: string;
+	/** Vehicle color name. */
+	colorName?: string;
+	/** Whether this is the account's currently selected vehicle. */
+	isCurrentVehicle?: boolean;
+	/** Whether this vehicle is shared from another account. */
+	isSubaccount?: boolean;
+}
+
 type FetchFunction = typeof fetch;
 
 interface SaicApiEnvelope {
@@ -39,6 +61,7 @@ interface SaicApiEnvelope {
 	data?: {
 		access_token?: string;
 		expires_in?: number;
+		vinList?: unknown;
 	};
 }
 
@@ -160,5 +183,102 @@ export class SaicApiClient {
 		}
 
 		return { accessToken, expiresIn };
+	}
+
+	/**
+	 * Retrieve vehicles linked to the authenticated account.
+	 *
+	 * @param options Account region and tenant settings.
+	 * @param accessToken Token returned by {@link login}.
+	 */
+	public async listVehicles(options: SaicLoginOptions, accessToken: string): Promise<SaicVehicle[]> {
+		const timestamp = String(this.now());
+		const requestPath = '/vehicle/list';
+		const contentType = 'application/json';
+		const encryptedBody = '';
+		const headers: Record<string, string> = {
+			Accept: 'application/json',
+			'Accept-Encoding': 'gzip',
+			'Content-Type': `${contentType};charset=utf-8`,
+			'ORIGINAL-CONTENT-TYPE': contentType,
+			'APP-SEND-DATE': timestamp,
+			'APP-CONTENT-ENCRYPTED': '1',
+			'APP-LANGUAGE-TYPE': 'en',
+			'APP-VERIFICATION-STRING': createSaicRequestSignature(
+				requestPath,
+				options.tenantId,
+				accessToken,
+				timestamp,
+				contentType,
+				encryptedBody,
+			),
+			REGION: options.regionCode,
+			'tenant-id': options.tenantId,
+			'User-Type': 'app',
+			'User-Agent': 'Europe/2.1.0 (iPad; iOS 18.5; Scale/2.00)',
+			'blade-auth': accessToken,
+		};
+
+		let response: Response;
+		try {
+			const baseUrl = options.baseUrl.endsWith('/') ? options.baseUrl : `${options.baseUrl}/`;
+			const requestUrl = new URL(requestPath.replace(/^\/+/, ''), baseUrl);
+			response = await this.fetchFunction(requestUrl, {
+				method: 'GET',
+				headers,
+				signal: AbortSignal.timeout(15_000),
+			});
+		} catch {
+			throw new Error('SAIC vehicle list request failed before a response was received');
+		}
+
+		const responseText = await response.text();
+		if (!response.ok) {
+			throw new Error(`SAIC vehicle list failed with HTTP status ${response.status}`);
+		}
+
+		const responseTimestamp = response.headers.get('APP-SEND-DATE');
+		const responseContentType = response.headers.get('ORIGINAL-CONTENT-TYPE');
+		const decodedBody =
+			responseTimestamp && responseContentType
+				? decryptSaicResponseBody(responseText, responseTimestamp, responseContentType)
+				: responseText;
+
+		let envelope: SaicApiEnvelope;
+		try {
+			envelope = JSON.parse(decodedBody) as SaicApiEnvelope;
+		} catch {
+			throw new Error('SAIC vehicle list returned an invalid response');
+		}
+
+		if (Number(envelope.code) !== 0) {
+			throw new Error(envelope.message || 'SAIC vehicle list request was rejected');
+		}
+		if (!Array.isArray(envelope.data?.vinList)) {
+			throw new Error('SAIC vehicle list response did not contain a vehicle list');
+		}
+
+		return envelope.data.vinList.flatMap((item): SaicVehicle[] => {
+			if (!item || typeof item !== 'object' || Array.isArray(item)) {
+				return [];
+			}
+			const record = item as Record<string, unknown>;
+			if (typeof record.vin !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(record.vin)) {
+				return [];
+			}
+
+			const vehicle: SaicVehicle = { vin: record.vin };
+			for (const key of ['name', 'brandName', 'modelName', 'series', 'modelYear', 'colorName'] as const) {
+				if (typeof record[key] === 'string') {
+					vehicle[key] = record[key];
+				}
+			}
+			for (const key of ['isCurrentVehicle', 'isSubaccount'] as const) {
+				if (typeof record[key] === 'boolean') {
+					vehicle[key] = record[key];
+				}
+			}
+			return [vehicle];
+		});
 	}
 }

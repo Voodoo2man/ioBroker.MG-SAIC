@@ -1,6 +1,6 @@
 import * as utils from '@iobroker/adapter-core';
 import { validateConfig, type MgSaicConfig } from './config';
-import { SaicApiClient } from './saic-client';
+import { SaicApiClient, type SaicVehicle } from './saic-client';
 import { resolveSaicRegion } from './regions';
 
 class MgSaic extends utils.Adapter {
@@ -30,21 +30,66 @@ class MgSaic extends utils.Adapter {
 		}
 
 		try {
-			await new SaicApiClient().login({
+			const client = new SaicApiClient();
+			const loginOptions = {
 				...region,
 				accountType: config.accountType as 'email' | 'phone',
 				accountIdentifier: config.accountIdentifier ?? '',
 				phoneCountryCode: config.phoneCountryCode,
 				password: config.password ?? '',
-			});
+			};
+			const login = await client.login(loginOptions);
+			const vehicles = await client.listVehicles(loginOptions, login.accessToken);
+			for (const vehicle of vehicles) {
+				await this.createVehicleObjects(vehicle);
+			}
 			await this.setState('info.connection', true, true);
 			await this.setState('info.lastError', '', true);
-			this.log.info('SAIC account authenticated. Vehicle discovery is not implemented yet.');
+			this.log.info(`SAIC account authenticated; discovered ${vehicles.length} vehicle(s).`);
 		} catch {
 			const error = 'SAIC login failed; check the selected region, account credentials, or connectivity';
 			await this.setState('info.connection', false, true);
 			await this.setState('info.lastError', error, true);
 			this.log.warn(error);
+		}
+	}
+
+	private async createVehicleObjects(vehicle: SaicVehicle): Promise<void> {
+		const deviceId = `vehicles.${vehicle.vin}`;
+		const values: Record<string, string | boolean | undefined> = {
+			vin: vehicle.vin,
+			name: vehicle.name,
+			brandName: vehicle.brandName,
+			modelName: vehicle.modelName,
+			series: vehicle.series,
+			modelYear: vehicle.modelYear,
+			colorName: vehicle.colorName,
+			isCurrentVehicle: vehicle.isCurrentVehicle,
+			isSubaccount: vehicle.isSubaccount,
+		};
+
+		await this.setObjectNotExistsAsync(deviceId, {
+			type: 'device',
+			common: { name: vehicle.name || vehicle.modelName || vehicle.vin },
+			native: {},
+		});
+		for (const [key, value] of Object.entries(values)) {
+			if (value === undefined) {
+				continue;
+			}
+			const isBoolean = typeof value === 'boolean';
+			await this.setObjectNotExistsAsync(`${deviceId}.${key}`, {
+				type: 'state',
+				common: {
+					name: key,
+					type: isBoolean ? 'boolean' : 'string',
+					role: isBoolean ? 'indicator' : key === 'vin' ? 'text' : 'info.name',
+					read: true,
+					write: false,
+				},
+				native: {},
+			});
+			await this.setStateAsync(`${deviceId}.${key}`, { val: value, ack: true });
 		}
 	}
 
