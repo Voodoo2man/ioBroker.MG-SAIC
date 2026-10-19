@@ -14,6 +14,16 @@ describe('validateConfig', () => {
 		expect(validateConfig(validEmailConfig)).to.deep.equal([]);
 	});
 
+	it('accepts a positive integer polling interval and rejects invalid values', () => {
+		expect(validateConfig({ ...validEmailConfig, pollIntervalSeconds: 60 })).to.deep.equal([]);
+		expect(validateConfig({ ...validEmailConfig, pollIntervalSeconds: 0 })).to.include(
+			'Polling interval must be a positive integer number of seconds',
+		);
+		expect(validateConfig({ ...validEmailConfig, pollIntervalSeconds: 1.5 })).to.include(
+			'Polling interval must be a positive integer number of seconds',
+		);
+	});
+
 	it('requires a country calling code for phone accounts', () => {
 		expect(validateConfig({ ...validEmailConfig, accountType: 'phone', phoneCountryCode: '' })).to.include(
 			'Phone country calling code is required',

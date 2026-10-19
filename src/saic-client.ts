@@ -387,7 +387,7 @@ export class SaicApiClient {
 			vin: createHash('sha256').update(vin, 'utf8').digest('hex'),
 			vehStatusReqType: '2',
 		});
-		const headers: Record<string, string> = {
+		const baseHeaders: Record<string, string> = {
 			Accept: 'application/json',
 			'Accept-Encoding': 'gzip',
 			'Content-Type': `${contentType};charset=utf-8`,
@@ -409,41 +409,57 @@ export class SaicApiClient {
 			'User-Agent': 'Europe/2.1.0 (iPad; iOS 18.5; Scale/2.00)',
 			'blade-auth': accessToken,
 		};
-		if (useEventId) {
-			headers['event-id'] = '0';
-		}
-
-		let response: Response;
-		try {
-			const baseUrl = options.baseUrl.endsWith('/') ? options.baseUrl : `${options.baseUrl}/`;
-			const requestUrl = new URL(`${requestPath.replace(/^\/+/, '')}?${query.toString()}`, baseUrl);
-			response = await this.fetchFunction(requestUrl, {
-				method: 'GET',
-				headers,
-				signal: AbortSignal.timeout(15_000),
-			});
-		} catch (error) {
-			const details = error instanceof Error ? error.message : 'Unknown network error';
-			throw new Error(`SAIC vehicle status request failed before a response was received: ${details}`);
-		}
-
-		const responseText = await response.text();
-		if (!response.ok) {
-			throw new Error(`SAIC vehicle status failed with HTTP status ${response.status}`);
-		}
-
-		const responseTimestamp = response.headers.get('APP-SEND-DATE');
-		const responseContentType = response.headers.get('ORIGINAL-CONTENT-TYPE');
-		const decodedBody =
-			responseTimestamp && responseContentType
-				? decryptSaicResponseBody(responseText, responseTimestamp, responseContentType)
-				: responseText;
-
+		const baseUrl = options.baseUrl.endsWith('/') ? options.baseUrl : `${options.baseUrl}/`;
+		const requestUrl = new URL(`${requestPath.replace(/^\/+/, '')}?${query.toString()}`, baseUrl);
+		const deadline = Date.now() + (useEventId ? 30_000 : 15_000);
+		let eventId = '0';
 		let envelope: SaicApiEnvelope;
-		try {
-			envelope = JSON.parse(decodedBody) as SaicApiEnvelope;
-		} catch {
-			throw new Error('SAIC vehicle status returned an invalid response');
+		let responseHeaders: Headers;
+		while (true) {
+			const headers = { ...baseHeaders };
+			if (useEventId) {
+				headers['event-id'] = eventId;
+			}
+			let response: Response;
+			try {
+				response = await this.fetchFunction(requestUrl, {
+					method: 'GET',
+					headers,
+					signal: AbortSignal.timeout(Math.max(1, Math.min(15_000, deadline - Date.now()))),
+				});
+			} catch (error) {
+				const details = error instanceof Error ? error.message : 'Unknown network error';
+				throw new Error(`SAIC vehicle status request failed before a response was received: ${details}`);
+			}
+
+			const responseText = await response.text();
+			if (!response.ok) {
+				throw new Error(`SAIC vehicle status failed with HTTP status ${response.status}`);
+			}
+
+			const responseTimestamp = response.headers.get('APP-SEND-DATE');
+			const responseContentType = response.headers.get('ORIGINAL-CONTENT-TYPE');
+			const decodedBody =
+				responseTimestamp && responseContentType
+					? decryptSaicResponseBody(responseText, responseTimestamp, responseContentType)
+					: responseText;
+
+			try {
+				envelope = JSON.parse(decodedBody) as SaicApiEnvelope;
+			} catch {
+				throw new Error('SAIC vehicle status returned an invalid response');
+			}
+			responseHeaders = response.headers;
+			const nextEventId = response.headers.get('event-id');
+			if (useEventId && !('data' in envelope) && nextEventId) {
+				if (Date.now() >= deadline) {
+					throw new Error('SAIC vehicle status timed out while waiting for vehicle data');
+				}
+				await new Promise(resolve => setTimeout(resolve, Math.min(1_000, Math.max(0, deadline - Date.now()))));
+				eventId = nextEventId;
+				continue;
+			}
+			break;
 		}
 
 		if (Number(envelope.code) !== 0) {
@@ -455,6 +471,7 @@ export class SaicApiClient {
 			Array.isArray(envelope.data.basicVehicleStatus)
 		) {
 			const responseKeys = Object.keys(envelope).join(', ') || 'none';
+			const responseEventId = useEventId ? responseHeaders.get('event-id') : null;
 			const dataType =
 				envelope.data === null ? 'null' : Array.isArray(envelope.data) ? 'array' : typeof envelope.data;
 			const dataKeys =
@@ -462,7 +479,7 @@ export class SaicApiClient {
 					? Object.keys(envelope.data).join(', ') || 'none'
 					: 'unavailable';
 			throw new Error(
-				`SAIC vehicle status response did not contain basic status data (code: ${String(envelope.code)}, response keys: ${responseKeys}, data type: ${dataType}, data keys: ${dataKeys})`,
+				`SAIC vehicle status response did not contain basic status data (code: ${String(envelope.code)}, response keys: ${responseKeys}, data type: ${dataType}, data keys: ${dataKeys}${responseEventId ? `, event-id: ${responseEventId}` : ''})`,
 			);
 		}
 

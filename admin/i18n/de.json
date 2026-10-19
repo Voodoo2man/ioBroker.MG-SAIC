@@ -8,5 +8,6 @@
 	"Phone number": "Telefonnummer",
 	"Email address or phone number": "E-Mail-Adresse oder Telefonnummer",
 	"Phone country calling code": "Internationale Ländervorwahl",
-	"Password": "Passwort"
+	"Password": "Passwort",
+	"Status polling interval (seconds)": "Status-Abrufintervall (Sekunden)"
 }

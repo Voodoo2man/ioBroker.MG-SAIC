@@ -18,13 +18,18 @@ var __copyProps = (to, from, except, desc) => {
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var config_exports = {};
 __export(config_exports, {
+  DEFAULT_POLL_INTERVAL_SECONDS: () => DEFAULT_POLL_INTERVAL_SECONDS,
   validateConfig: () => validateConfig
 });
 module.exports = __toCommonJS(config_exports);
 var import_regions = require("./regions");
+const DEFAULT_POLL_INTERVAL_SECONDS = 1800;
 function validateConfig(config) {
   var _a, _b, _c;
   const errors = [];
+  if (config.pollIntervalSeconds !== void 0 && (!Number.isInteger(config.pollIntervalSeconds) || config.pollIntervalSeconds < 1)) {
+    errors.push("Polling interval must be a positive integer number of seconds");
+  }
   if (!((_a = config.region) == null ? void 0 : _a.trim())) {
     errors.push("Region/backend code is required");
   } else if ((0, import_regions.isIndiaRegion)(config.region)) {
@@ -48,6 +53,7 @@ function validateConfig(config) {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  DEFAULT_POLL_INTERVAL_SECONDS,
   validateConfig
 });
 //# sourceMappingURL=config.js.map

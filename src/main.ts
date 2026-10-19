@@ -1,7 +1,8 @@
 import * as utils from '@iobroker/adapter-core';
-import { validateConfig, type MgSaicConfig } from './config';
+import { DEFAULT_POLL_INTERVAL_SECONDS, validateConfig, type MgSaicConfig } from './config';
 import { SaicApiClient, type SaicVehicle, type SaicVehicleStatus } from './saic-client';
 import { resolveSaicRegion } from './regions';
+import { getVehicleStatusMetadata, normalizeVehicleStatusValue } from './status-metadata';
 
 class MgSaic extends utils.Adapter {
 	public constructor(options: Partial<utils.AdapterOptions> = {}) {
@@ -10,11 +11,41 @@ class MgSaic extends utils.Adapter {
 			name: 'mg-saic',
 		});
 		this.on('ready', this.onReady.bind(this));
+		this.on('stateChange', this.onStateChange.bind(this));
 		this.on('unload', this.onUnload.bind(this));
 	}
 
+	private pollTimer?: ioBroker.Interval;
+	private pollInProgress = false;
+	private stopping = false;
+	private client?: SaicApiClient;
+	private loginOptions?: {
+		baseUrl: string;
+		regionCode: string;
+		tenantId: string;
+		accountType: 'email' | 'phone';
+		accountIdentifier: string;
+		phoneCountryCode?: string;
+		password: string;
+	};
+	private accessToken?: string;
+	private vehicles: SaicVehicle[] = [];
+
 	private async onReady(): Promise<void> {
 		const config = this.config as unknown as MgSaicConfig;
+		await this.setObjectNotExistsAsync('commands.refresh', {
+			type: 'state',
+			common: {
+				name: 'Refresh vehicle status',
+				type: 'boolean',
+				role: 'button',
+				read: false,
+				write: true,
+			},
+			native: {},
+		});
+		await this.setStateAsync('commands.refresh', { val: false, ack: true });
+		this.subscribeStates('commands.refresh');
 		await this.setState('info.connection', false, true);
 		await this.setState('info.backend', config.region?.trim() || 'not configured', true);
 		const errors = validateConfig(config);
@@ -30,35 +61,59 @@ class MgSaic extends utils.Adapter {
 		}
 
 		try {
-			const client = new SaicApiClient();
-			const loginOptions = {
+			this.client = new SaicApiClient();
+			this.loginOptions = {
 				...region,
 				accountType: config.accountType as 'email' | 'phone',
 				accountIdentifier: config.accountIdentifier ?? '',
 				phoneCountryCode: config.phoneCountryCode,
 				password: config.password ?? '',
 			};
-			const login = await client.login(loginOptions);
-			const vehicles = await client.listVehicles(loginOptions, login.accessToken);
-			for (const vehicle of vehicles) {
+			const login = await this.client.login(this.loginOptions);
+			this.accessToken = login.accessToken;
+			this.vehicles = await this.client.listVehicles(this.loginOptions, login.accessToken);
+			for (const vehicle of this.vehicles) {
 				await this.createVehicleObjects(vehicle);
 			}
 			await this.setState('info.connection', true, true);
-			this.log.info(`SAIC account authenticated; discovered ${vehicles.length} vehicle(s).`);
+			this.log.info(`SAIC account authenticated; discovered ${this.vehicles.length} vehicle(s).`);
 
-			const statusErrors: string[] = [];
-			for (const vehicle of vehicles) {
+			await this.refreshVehicleStatuses();
+			const intervalSeconds = config.pollIntervalSeconds ?? DEFAULT_POLL_INTERVAL_SECONDS;
+			this.pollTimer = this.setInterval(() => void this.refreshVehicleStatuses(), intervalSeconds * 1000);
+		} catch {
+			const error = 'SAIC login failed; check the selected region, account credentials, or connectivity';
+			await this.setState('info.connection', false, true);
+			await this.setState('info.lastError', error, true);
+			this.log.warn(error);
+		}
+	}
+
+	private async refreshVehicleStatuses(): Promise<void> {
+		if (this.stopping || this.pollInProgress || !this.client || !this.loginOptions || !this.accessToken) {
+			return;
+		}
+		this.pollInProgress = true;
+		const statusErrors: string[] = [];
+		try {
+			for (const vehicle of this.vehicles) {
+				if (this.stopping) {
+					break;
+				}
 				try {
-					const status = await client.getVehicleStatus(loginOptions, login.accessToken, vehicle.vin);
+					const status = await this.client.getVehicleStatus(this.loginOptions, this.accessToken, vehicle.vin);
 					await this.createVehicleStatusObjects(vehicle.vin, status);
 				} catch (error) {
 					const details = error instanceof Error ? error.message : 'Unknown error';
-					const message = `Vehicle status request failed for ${vehicle.vin}: ${details}`;
-					statusErrors.push(message);
+					statusErrors.push(`Vehicle status request failed for ${vehicle.vin}: ${details}`);
 					this.log.warn(`Could not retrieve current status for vehicle ${vehicle.vin}: ${details}`);
 				}
 				try {
-					const status = await client.getCachedVehicleStatus(loginOptions, login.accessToken, vehicle.vin);
+					const status = await this.client.getCachedVehicleStatus(
+						this.loginOptions,
+						this.accessToken,
+						vehicle.vin,
+					);
 					await this.createVehicleStatusObjects(vehicle.vin, status, 'cachedStatus', 'SAIC cached status');
 				} catch (error) {
 					const details = error instanceof Error ? error.message : 'Unknown error';
@@ -66,13 +121,20 @@ class MgSaic extends utils.Adapter {
 					this.log.warn(`Could not retrieve cached status for vehicle ${vehicle.vin}: ${details}`);
 				}
 			}
-			await this.setState('info.lastError', statusErrors.join('; '), true);
-		} catch {
-			const error = 'SAIC login failed; check the selected region, account credentials, or connectivity';
-			await this.setState('info.connection', false, true);
-			await this.setState('info.lastError', error, true);
-			this.log.warn(error);
+			if (!this.stopping) {
+				await this.setState('info.lastError', statusErrors.join('; '), true);
+			}
+		} finally {
+			this.pollInProgress = false;
 		}
+	}
+
+	private onStateChange(id: string, state: ioBroker.State | null | undefined): void {
+		if (id !== 'commands.refresh' || !state || state.ack || state.val !== true || this.stopping) {
+			return;
+		}
+		void this.setStateAsync('commands.refresh', { val: false, ack: true });
+		void this.refreshVehicleStatuses();
 	}
 
 	private async createVehicleStatusObjects(
@@ -96,18 +158,15 @@ class MgSaic extends utils.Adapter {
 			values.onlineStatus = status.onlineStatus;
 		}
 		for (const [key, value] of Object.entries(values)) {
-			await this.setObjectNotExistsAsync(`${statusId}.${key}`, {
-				type: 'state',
+			const metadata = getVehicleStatusMetadata(key);
+			await this.extendObjectAsync(`${statusId}.${key}`, {
 				common: {
-					name: key,
-					type: 'number',
-					role: 'value',
-					read: true,
-					write: false,
+					type: metadata.type,
+					role: metadata.role,
+					...(metadata.unit ? { unit: metadata.unit } : {}),
 				},
-				native: {},
 			});
-			await this.setStateAsync(`${statusId}.${key}`, { val: value, ack: true });
+			await this.setStateAsync(`${statusId}.${key}`, { val: normalizeVehicleStatusValue(key, value), ack: true });
 		}
 	}
 
@@ -151,6 +210,10 @@ class MgSaic extends utils.Adapter {
 	}
 
 	private onUnload(callback: () => void): void {
+		this.stopping = true;
+		if (this.pollTimer) {
+			this.clearInterval(this.pollTimer);
+		}
 		callback();
 	}
 }

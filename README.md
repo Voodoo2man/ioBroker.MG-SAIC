@@ -2,7 +2,7 @@
 
 <img src="MG.png" alt="MG" width="314">
 
-**The adapter is currently at its initial version (0.0.1) and remains under development. Global SAIC OAuth login, vehicle discovery, and a current vehicle-status snapshot are implemented. Automatic polling, commands, and India TAP are not implemented yet.**
+**The adapter is currently at its initial version (0.0.1) and remains under development. Global SAIC OAuth login, vehicle discovery, and live and cached vehicle status retrieval are implemented. India TAP is not implemented yet.**
 
 This is an unofficial community project and is not affiliated with or endorsed by MG, SAIC, or the iSmart service.
 
@@ -19,8 +19,9 @@ The Admin form accepts an email address or phone number, an optional phone count
 - The adapter validates required account fields and displays initialization status under `info`.
 - For supported global regions, the adapter authenticates with SAIC, retrieves the account's vehicle list, and reports connection status in `info.connection` and `info.lastError`.
 - Each discovered vehicle has a `vehicles.<VIN>` device with its VIN and available name, brand, model, series, year, color, and account flags.
-- At startup, the adapter requests both a live status and SAIC's last cached status for each vehicle. Available numeric values are stored separately as read-only states under `vehicles.<VIN>.status` and `vehicles.<VIN>.cachedStatus`.
-- Status values are raw API values and are not converted or assigned units. Neither status is refreshed automatically; polling, controls, persistence, and India TAP are not available yet.
+- The adapter requests both a live status and SAIC's last cached status for each vehicle at startup and at the configured interval. Available numeric values are stored separately as read-only states under `vehicles.<VIN>.status` and `vehicles.<VIN>.cachedStatus`.
+- Configure the automatic status polling interval in seconds in the adapter settings (default: 1800 seconds). Write `true` to `commands.refresh` to request an immediate refresh.
+- Status measurements retain the raw API values and include units where known; binary status fields are exposed as boolean indicators. Persistence and India TAP are not available yet.
 - Home Assistant is not a runtime dependency.
 
 ## Installation

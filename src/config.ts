@@ -2,6 +2,8 @@ import { isIndiaRegion, resolveSaicRegion } from './regions';
 
 /** Settings entered for one iSmart account and backend. */
 export interface MgSaicConfig {
+	/** Automatic status polling interval in seconds. */
+	pollIntervalSeconds?: number;
 	/** Backend region code. */
 	region?: string;
 	/** Whether the account identifier is an email address or phone number. */
@@ -14,6 +16,8 @@ export interface MgSaicConfig {
 	password?: string;
 }
 
+export const DEFAULT_POLL_INTERVAL_SECONDS = 1800;
+
 /**
  * Returns configuration problems without logging any credential values.
  *
@@ -21,6 +25,12 @@ export interface MgSaicConfig {
  */
 export function validateConfig(config: MgSaicConfig): string[] {
 	const errors: string[] = [];
+	if (
+		config.pollIntervalSeconds !== undefined &&
+		(!Number.isInteger(config.pollIntervalSeconds) || config.pollIntervalSeconds < 1)
+	) {
+		errors.push('Polling interval must be a positive integer number of seconds');
+	}
 	if (!config.region?.trim()) {
 		errors.push('Region/backend code is required');
 	} else if (isIndiaRegion(config.region)) {

@@ -8,5 +8,6 @@
 	"Phone number": "Phone number",
 	"Email address or phone number": "Email address or phone number",
 	"Phone country calling code": "Phone country calling code",
-	"Password": "Password"
+	"Password": "Password",
+	"Status polling interval (seconds)": "Status polling interval (seconds)"
 }

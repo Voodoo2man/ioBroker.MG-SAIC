@@ -39,6 +39,13 @@
 					"type": "password",
 					"label": "Password",
 					"visible": false
+				},
+				"pollIntervalSeconds": {
+					"type": "number",
+					"label": "Status polling interval (seconds)",
+					"default": 1800,
+					"min": 1,
+					"step": 1
 				}
 			}
 		}

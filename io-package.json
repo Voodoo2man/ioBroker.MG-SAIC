@@ -85,6 +85,7 @@
 	},
 	"native": {
 		"region": "EU",
+		"pollIntervalSeconds": 1800,
 		"accountType": "email",
 		"accountIdentifier": "",
 		"phoneCountryCode": "",
