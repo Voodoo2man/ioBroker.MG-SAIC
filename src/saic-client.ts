@@ -372,12 +372,10 @@ export class SaicApiClient {
 				this.debug(`Live status request for ${vin}: attempt ${attempt}/5`);
 				return await this.requestVehicleStatus(options, accessToken, vin, '/vehicle/status', true);
 			} catch (error) {
-				if (!(error instanceof RetryableVehicleStatusError)) {
-					this.debug(`Live status request for ${vin} failed without retry: ${this.errorMessage(error)}`);
-					throw error;
-				}
 				lastError = error;
-				this.debug(`Live status request for ${vin} failed on attempt ${attempt}/5: ${error.message}`);
+				this.debug(
+					`Live status request for ${vin} failed on attempt ${attempt}/5: ${this.errorMessage(error)}`,
+				);
 				if (attempt < 5) {
 					this.debug(`Retrying live status request for ${vin} in 15 seconds`);
 					await this.wait(15_000);
@@ -453,10 +451,9 @@ export class SaicApiClient {
 		};
 		const baseUrl = options.baseUrl.endsWith('/') ? options.baseUrl : `${options.baseUrl}/`;
 		const requestUrl = new URL(`${requestPath.replace(/^\/+/, '')}?${query.toString()}`, baseUrl);
-		const deadline = Date.now() + (useEventId ? 30_000 : 15_000);
+		const deadline = this.now() + (useEventId ? 30_000 : 15_000);
 		let eventId = '0';
 		let requestCount = 0;
-		let initialTimeoutRetried = false;
 		let envelope: SaicApiEnvelope;
 		let responseHeaders: Headers;
 		while (true) {
@@ -465,11 +462,11 @@ export class SaicApiClient {
 				headers['event-id'] = eventId;
 			}
 			let response: Response;
-			let requestStartedAt = Date.now();
+			let requestStartedAt = this.now();
 			try {
 				requestCount++;
-				const requestTimeoutMs = Math.max(1, Math.min(useEventId ? 5_000 : 15_000, deadline - Date.now()));
-				requestStartedAt = Date.now();
+				const requestTimeoutMs = useEventId ? 5_000 : Math.max(1, Math.min(15_000, deadline - this.now()));
+				requestStartedAt = this.now();
 				this.debug(
 					`GET ${requestPath} for ${vin}, request ${requestCount}, timeout ${requestTimeoutMs}ms, event-id ${useEventId ? eventId : 'none'}`,
 				);
@@ -479,12 +476,12 @@ export class SaicApiClient {
 					signal: AbortSignal.timeout(requestTimeoutMs),
 				});
 				this.debug(
-					`GET ${requestPath} for ${vin} received response headers after ${Date.now() - requestStartedAt}ms`,
+					`GET ${requestPath} for ${vin} received response headers after ${this.now() - requestStartedAt}ms`,
 				);
 			} catch (error) {
 				const details = error instanceof Error ? error.message : 'Unknown network error';
 				this.debug(
-					`GET ${requestPath} for ${vin} failed after ${Date.now() - requestStartedAt}ms before response: ${details}`,
+					`GET ${requestPath} for ${vin} failed after ${this.now() - requestStartedAt}ms before response: ${details}`,
 				);
 				throw new RetryableVehicleStatusError(
 					`SAIC vehicle status request failed before a response was received: ${details}`,
@@ -530,36 +527,25 @@ export class SaicApiClient {
 			this.debug(
 				`GET ${requestPath} for ${vin} returned SAIC code ${String(envelope.code)}, message: ${responseMessage}, data keys: ${Object.keys(envelope.data ?? {}).join(', ') || 'none'}, next event-id: ${nextEventId ?? 'none'}`,
 			);
-			if (useEventId && Number(envelope.code) === 0 && envelope.data === undefined) {
-				if (Date.now() >= deadline) {
-					throw new Error('SAIC vehicle status timed out while waiting for vehicle data');
+			const returnCode = Number(envelope.code);
+			if (
+				useEventId &&
+				![2, 3, 7].includes(returnCode) &&
+				((Boolean(nextEventId) && envelope.data === undefined) || (returnCode !== 0 && eventId !== '0'))
+			) {
+				if (this.now() >= deadline) {
+					throw new RetryableVehicleStatusError(
+						envelope.message || 'SAIC vehicle status timed out while waiting for vehicle data',
+					);
 				}
-				await new Promise(resolve => setTimeout(resolve, Math.min(1_000, Math.max(0, deadline - Date.now()))));
+				await this.wait(3_000);
 				if (nextEventId) {
 					eventId = nextEventId;
 				}
 				continue;
 			}
-			const returnCode = Number(envelope.code);
-			if (
-				useEventId &&
-				returnCode !== 0 &&
-				![2, 3, 7].includes(returnCode) &&
-				(eventId !== '0' ||
-					(envelope.data === undefined && Boolean(nextEventId)) ||
-					(returnCode === 1 && !initialTimeoutRetried))
-			) {
-				if (Date.now() >= deadline) {
-					throw new Error(envelope.message || 'SAIC vehicle status timed out while waiting for vehicle data');
-				}
-				if (eventId === '0' && !nextEventId) {
-					initialTimeoutRetried = true;
-				}
-				await new Promise(resolve => setTimeout(resolve, Math.min(1_000, Math.max(0, deadline - Date.now()))));
-				if (nextEventId) {
-					eventId = nextEventId;
-				}
-				continue;
+			if (useEventId && returnCode === 0 && envelope.data === undefined && this.now() >= deadline) {
+				throw new RetryableVehicleStatusError('SAIC vehicle status timed out while waiting for vehicle data');
 			}
 			break;
 		}
