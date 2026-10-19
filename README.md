@@ -1,6 +1,6 @@
 # ioBroker MG/SAIC
 
-![MG](MG.png)
+<img src="MG.png" alt="MG" width="157">
 
 **The adapter foundation is under development. Global SAIC OAuth login is implemented, but vehicle discovery, telemetry, commands, polling, and India TAP are not implemented yet.** The adapter can verify account authentication and exposes diagnostic states; it does not retrieve vehicle data.
 
