@@ -570,7 +570,6 @@ const booleanStatusFields = /* @__PURE__ */ new Set([
   "rearLeftWindow",
   "rearRightDoor",
   "rearRightWindow",
-  "remoteClimateStatus",
   "sideLightStatus",
   "sunroofStatus"
 ]);
@@ -599,7 +598,8 @@ const statusScales = {
   frontRightTyrePressure: { factor: 0.04, precision: 2 },
   mileage: { factor: 0.1, precision: 1 },
   rearLeftTyrePressure: { factor: 0.04, precision: 2 },
-  rearRightTyrePressure: { factor: 0.04, precision: 2 }
+  rearRightTyrePressure: { factor: 0.04, precision: 2 },
+  speed: { factor: 0.1, precision: 1 }
 };
 function getVehicleStatusMetadata(key) {
   var _a;

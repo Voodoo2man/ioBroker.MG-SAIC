@@ -20,6 +20,7 @@ describe('getVehicleStatusMetadata', () => {
 			expect(metadata.name.en).to.be.a('string').and.not.empty;
 			expect(metadata.name.de).to.be.a('string').and.not.empty;
 		}
+		expect(getVehicleStatusMetadata('remoteClimateStatus')).to.include({ type: 'number', role: 'value' });
 	});
 
 	it('assigns units to known measurements', () => {
@@ -42,6 +43,8 @@ describe('getVehicleStatusMetadata', () => {
 		expect(normalizeVehicleStatusValue('frontLeftTyrePressure', 62)).to.equal(2.48);
 		expect(normalizeVehicleStatusValue('interiorTemperature', 21)).to.equal(21);
 		expect(normalizeVehicleStatusValue('statusTime', 1_792_442_089)).to.equal(1_792_442_089_000);
+		expect(normalizeVehicleStatusValue('speed', 425)).to.equal(42.5);
+		expect(normalizeVehicleStatusValue('remoteClimateStatus', 2)).to.equal(2);
 	});
 
 	it('leaves unknown measurements unchanged', () => {

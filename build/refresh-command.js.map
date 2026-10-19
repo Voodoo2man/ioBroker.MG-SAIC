@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../src/refresh-command.ts"],
+  "sourcesContent": ["/**\n * Return whether an event requests a refresh on this adapter instance.\n *\n * @param id Fully qualified state ID from ioBroker.\n * @param namespace Adapter instance namespace.\n * @param state State value supplied by ioBroker.\n */\nexport function isRefreshCommand(id: string, namespace: string, state: ioBroker.State | null | undefined): boolean {\n\treturn (\n\t\tid === `${namespace}.commands.refresh` &&\n\t\tstate !== null &&\n\t\tstate !== undefined &&\n\t\t!state.ack &&\n\t\tstate.val === true\n\t);\n}\n"],
+  "mappings": ";;;;;;;;;;;;;;;;;;AAAA;AAAA;AAAA;AAAA;AAAA;AAOO,SAAS,iBAAiB,IAAY,WAAmB,OAAmD;AAClH,SACC,OAAO,GAAG,SAAS,uBACnB,UAAU,QACV,UAAU,UACV,CAAC,MAAM,OACP,MAAM,QAAQ;AAEhB;",
+  "names": []
+}

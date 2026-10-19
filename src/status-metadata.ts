@@ -580,7 +580,6 @@ const booleanStatusFields = new Set([
 	'rearLeftWindow',
 	'rearRightDoor',
 	'rearRightWindow',
-	'remoteClimateStatus',
 	'sideLightStatus',
 	'sunroofStatus',
 ]);
@@ -612,6 +611,7 @@ const statusScales: Record<string, { factor: number; precision: number }> = {
 	mileage: { factor: 0.1, precision: 1 },
 	rearLeftTyrePressure: { factor: 0.04, precision: 2 },
 	rearRightTyrePressure: { factor: 0.04, precision: 2 },
+	speed: { factor: 0.1, precision: 1 },
 };
 
 /**

@@ -21,7 +21,7 @@ The Admin form accepts an email address or phone number, an optional phone count
 - Each discovered vehicle has a `vehicles.<VIN>` device with its VIN and available name, brand, model, series, year, color, and account flags.
 - The adapter requests live status for each vehicle at startup and at the configured interval. If the live request fails, it also requests SAIC's last cached status as a fallback. Values are grouped under `vehicles.<VIN>.status.<group>` and `vehicles.<VIN>.cachedStatus.<group>` channels (for example, `driving`, `climate`, `tires`, and `energy`). Existing flat status states are moved to the grouped paths when refreshed.
 - Configure the automatic status polling interval in seconds in the adapter settings (default: 1800 seconds). Write `true` to `commands.refresh` to request an immediate refresh.
-- Status measurements are converted from documented raw API scales to display units where known (including km, V, and bar); binary status fields are exposed as boolean indicators. Other measurements retain their API values. Persistence and India TAP are not available yet.
+- Status measurements are converted from documented raw API scales to display units where known (including GPS speed in km/h, distance in km, voltage in V, and tyre pressure in bar); binary status fields are exposed as boolean indicators, while `remoteClimateStatus` retains its numeric API codes. Status timestamps older than 24 hours or more than five minutes in the future are rejected; responses without a timestamp remain usable, and an older live response cannot replace a newer one. Other measurements retain their API values. Persistence and India TAP are not available yet.
 - Home Assistant is not a runtime dependency.
 
 ## Installation
@@ -33,18 +33,8 @@ The adapter is not published yet. Install it through the ioBroker Admin adapter 
 ### **WORK IN PROGRESS**
 
 - (Voodoo2man) Initial Version
-- (Voodoo2man) Retried transient live vehicle status errors using SAIC event IDs.
-- (Voodoo2man) Retried initial live status timeout responses when SAIC provided an event ID.
-- (Voodoo2man) Retried one initial live status timeout when SAIC omitted the event ID.
-- (Voodoo2man) Added localized Home Assistant-style names for vehicle status data points.
-- (Voodoo2man) Added speed, vehicle alarm status, and tyre monitor status data points from SAIC vehicle status.
-- (Voodoo2man) Grouped vehicle status data points into functional subchannels.
-- (Voodoo2man) Created and repaired status objects with complete ioBroker state metadata.
-- (Voodoo2man) Displayed status timestamps as dates and retried timed-out live HTTP waits.
-- (Voodoo2man) Matched Home Assistant's live-status retries for transient transport failures.
-- (Voodoo2man) Matched Home Assistant's event-ID polling after SAIC reported live request timeouts.
-- (Voodoo2man) Added privacy-conscious status diagnostics, including bounded SAIC response messages and state creation details.
-- (Voodoo2man) Published cached vehicle status before waiting for live status responses.
+- (Voodoo2man) Corrected live-status signing and value mappings, bounded retries, and handled shutdown cancellation and stale responses.
+
 
 ## License
 

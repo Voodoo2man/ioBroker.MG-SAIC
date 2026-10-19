@@ -18,12 +18,27 @@ var __copyProps = (to, from, except, desc) => {
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var saic_client_exports = {};
 __export(saic_client_exports, {
-  SaicApiClient: () => SaicApiClient
+  SaicApiClient: () => SaicApiClient,
+  SaicHttpError: () => SaicHttpError,
+  isVehicleStatusNotOlder: () => isVehicleStatusNotOlder,
+  isVehicleStatusTimestampValid: () => isVehicleStatusTimestampValid
 });
 module.exports = __toCommonJS(saic_client_exports);
 var import_node_crypto = require("node:crypto");
 var import_saic_crypto = require("./saic-crypto");
 class RetryableVehicleStatusError extends Error {
+}
+class SaicBodyReadError extends Error {
+}
+class SaicHttpError extends Error {
+  /**
+   * @param message Bounded request error message.
+   * @param status HTTP status code.
+   */
+  constructor(message, status) {
+    super(message);
+    this.status = status;
+  }
 }
 const vehicleStatusFields = [
   "batteryVoltage",
@@ -64,20 +79,51 @@ const vehicleStatusFields = [
   "vehicleAlarmStatus",
   "wheelTyreMonitorStatus"
 ];
+function isVehicleStatusTimestampValid(statusTime, now) {
+  if (statusTime === void 0) {
+    return true;
+  }
+  const timestampMs = statusTime * 1e3;
+  return Number.isFinite(timestampMs) && timestampMs <= now + 5 * 6e4 && timestampMs >= now - 24 * 60 * 6e4;
+}
+function isVehicleStatusNotOlder(statusTime, previousStatusTime) {
+  return statusTime === void 0 || previousStatusTime === void 0 || statusTime >= previousStatusTime;
+}
 class SaicApiClient {
   fetchFunction;
   now;
+  monotonicNow;
   wait;
   /**
    * @param fetchFunction HTTP transport, injectable for tests.
    * @param now Clock function returning milliseconds since epoch.
    * @param wait Delay function used between retry attempts.
    * @param debug Optional debug logger that receives status diagnostics without response values.
+   * @param monotonicNow Monotonic clock used to bound live event polling.
    */
-  constructor(fetchFunction = fetch, now = Date.now, wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)), debug = () => void 0) {
+  constructor(fetchFunction = fetch, now = Date.now, wait = (milliseconds, signal) => new Promise((resolve, reject) => {
+    if (signal == null ? void 0 : signal.aborted) {
+      reject(signal.reason instanceof Error ? signal.reason : new Error("Request was aborted"));
+      return;
+    }
+    const timerRef = {};
+    const onAbort = () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+      reject((signal == null ? void 0 : signal.reason) instanceof Error ? signal.reason : new Error("Request was aborted"));
+    };
+    const timer = setTimeout(() => {
+      signal == null ? void 0 : signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, milliseconds);
+    timerRef.current = timer;
+    signal == null ? void 0 : signal.addEventListener("abort", onAbort, { once: true });
+  }), debug = () => void 0, monotonicNow = () => performance.now()) {
     this.fetchFunction = fetchFunction;
     this.now = now;
     this.wait = wait;
+    this.monotonicNow = monotonicNow;
     this.debug = debug;
   }
   debug;
@@ -85,8 +131,9 @@ class SaicApiClient {
    * Sign in and return a validated access token.
    *
    * @param options Account and regional API settings.
+   * @param signal Optional caller cancellation signal.
    */
-  async login(options) {
+  async login(options, signal) {
     var _a, _b;
     const requestTime = this.now();
     const timestamp = String(requestTime);
@@ -139,26 +186,30 @@ class SaicApiClient {
       "User-Type": "app",
       "User-Agent": "Europe/2.1.0 (iPad; iOS 18.5; Scale/2.00)"
     };
-    let response;
+    let result;
     try {
       const baseUrl = options.baseUrl.endsWith("/") ? options.baseUrl : `${options.baseUrl}/`;
       const requestUrl = new URL(requestPath.replace(/^\/+/, ""), baseUrl);
-      response = await this.fetchFunction(requestUrl, {
-        method: "POST",
-        headers,
-        body: encryptedBody,
-        signal: AbortSignal.timeout(15e3)
-      });
-    } catch {
-      throw new Error("SAIC login request failed before a response was received");
+      result = await this.fetchResponse(
+        requestUrl,
+        { method: "POST", headers, body: encryptedBody },
+        15e3,
+        signal
+      );
+    } catch (error) {
+      if (signal == null ? void 0 : signal.aborted) {
+        throw signal.reason;
+      }
+      if (error instanceof SaicBodyReadError) {
+        throw new Error(`SAIC login response body could not be read: ${error.message}`);
+      }
+      throw new Error(`SAIC login request failed before a response was received: ${this.errorMessage(error)}`);
     }
-    const responseText = await response.text();
+    const { response, body: responseText } = result;
     if (!response.ok) {
       throw new Error(`SAIC login failed with HTTP status ${response.status}`);
     }
-    const responseTimestamp = response.headers.get("APP-SEND-DATE");
-    const responseContentType = response.headers.get("ORIGINAL-CONTENT-TYPE");
-    const decodedBody = responseTimestamp && responseContentType ? (0, import_saic_crypto.decryptSaicResponseBody)(responseText, responseTimestamp, responseContentType) : responseText;
+    const decodedBody = this.decodeResponseBody(response, responseText, "login");
     let envelope;
     try {
       envelope = JSON.parse(decodedBody);
@@ -180,8 +231,9 @@ class SaicApiClient {
    *
    * @param options Account region and tenant settings.
    * @param accessToken Token returned by {@link login}.
+   * @param signal Optional caller cancellation signal.
    */
-  async listVehicles(options, accessToken) {
+  async listVehicles(options, accessToken, signal) {
     var _a;
     const timestamp = String(this.now());
     const requestPath = "/vehicle/list";
@@ -209,25 +261,27 @@ class SaicApiClient {
       "User-Agent": "Europe/2.1.0 (iPad; iOS 18.5; Scale/2.00)",
       "blade-auth": accessToken
     };
-    let response;
+    let result;
     try {
       const baseUrl = options.baseUrl.endsWith("/") ? options.baseUrl : `${options.baseUrl}/`;
       const requestUrl = new URL(requestPath.replace(/^\/+/, ""), baseUrl);
-      response = await this.fetchFunction(requestUrl, {
-        method: "GET",
-        headers,
-        signal: AbortSignal.timeout(15e3)
-      });
-    } catch {
-      throw new Error("SAIC vehicle list request failed before a response was received");
+      result = await this.fetchResponse(requestUrl, { method: "GET", headers }, 15e3, signal);
+    } catch (error) {
+      if (signal == null ? void 0 : signal.aborted) {
+        throw signal.reason;
+      }
+      if (error instanceof SaicBodyReadError) {
+        throw new Error(`SAIC vehicle list response body could not be read: ${error.message}`);
+      }
+      throw new Error(
+        `SAIC vehicle list request failed before a response was received: ${this.errorMessage(error)}`
+      );
     }
-    const responseText = await response.text();
+    const { response, body: responseText } = result;
     if (!response.ok) {
       throw new Error(`SAIC vehicle list failed with HTTP status ${response.status}`);
     }
-    const responseTimestamp = response.headers.get("APP-SEND-DATE");
-    const responseContentType = response.headers.get("ORIGINAL-CONTENT-TYPE");
-    const decodedBody = responseTimestamp && responseContentType ? (0, import_saic_crypto.decryptSaicResponseBody)(responseText, responseTimestamp, responseContentType) : responseText;
+    const decodedBody = this.decodeResponseBody(response, responseText, "vehicle list");
     let envelope;
     try {
       envelope = JSON.parse(decodedBody);
@@ -268,21 +322,31 @@ class SaicApiClient {
    * @param options Account region and tenant settings.
    * @param accessToken Token returned by {@link login}.
    * @param vin Vehicle identification number.
+   * @param signal Optional caller cancellation signal.
    */
-  async getVehicleStatus(options, accessToken, vin) {
+  async getVehicleStatus(options, accessToken, vin, signal) {
     let lastError;
     for (let attempt = 1; attempt <= 5; attempt++) {
+      if (signal == null ? void 0 : signal.aborted) {
+        throw signal.reason;
+      }
       try {
         this.debug(`Live status request for ${vin}: attempt ${attempt}/5`);
-        return await this.requestVehicleStatus(options, accessToken, vin, "/vehicle/status", true);
+        return await this.requestVehicleStatus(options, accessToken, vin, "/vehicle/status", true, signal);
       } catch (error) {
+        if (signal == null ? void 0 : signal.aborted) {
+          throw signal.reason;
+        }
+        if (!(error instanceof RetryableVehicleStatusError)) {
+          throw error;
+        }
         lastError = error;
         this.debug(
           `Live status request for ${vin} failed on attempt ${attempt}/5: ${this.errorMessage(error)}`
         );
         if (attempt < 5) {
           this.debug(`Retrying live status request for ${vin} in 15 seconds`);
-          await this.wait(15e3);
+          await this.wait(15e3, signal);
         }
       }
     }
@@ -294,13 +358,50 @@ class SaicApiClient {
    * @param options Account region and tenant settings.
    * @param accessToken Token returned by {@link login}.
    * @param vin Vehicle identification number.
+   * @param signal Optional caller cancellation signal.
    */
-  async getCachedVehicleStatus(options, accessToken, vin) {
+  async getCachedVehicleStatus(options, accessToken, vin, signal) {
     this.debug(`Cached status request for ${vin}`);
-    return this.requestVehicleStatus(options, accessToken, vin, "/vehicle/status/cache", false);
+    return this.requestVehicleStatus(options, accessToken, vin, "/vehicle/status/cache", false, signal);
+  }
+  async fetchResponse(url, init, timeoutMs, signal) {
+    const controller = new AbortController();
+    const timer = setTimeout(
+      () => controller.abort(new DOMException("Request timed out", "TimeoutError")),
+      timeoutMs
+    );
+    const abort = () => controller.abort(signal == null ? void 0 : signal.reason);
+    if (signal == null ? void 0 : signal.aborted) {
+      abort();
+    } else if (signal) {
+      signal.addEventListener("abort", abort, { once: true });
+    }
+    try {
+      const response = await this.fetchFunction(url, { ...init, signal: controller.signal });
+      try {
+        return { response, body: await response.text() };
+      } catch (error) {
+        throw new SaicBodyReadError(this.errorMessage(error));
+      }
+    } finally {
+      clearTimeout(timer);
+      signal == null ? void 0 : signal.removeEventListener("abort", abort);
+    }
   }
   errorMessage(error) {
     return error instanceof Error ? error.message : "Unknown error";
+  }
+  decodeResponseBody(response, responseText, context) {
+    const responseTimestamp = response.headers.get("APP-SEND-DATE");
+    const responseContentType = response.headers.get("ORIGINAL-CONTENT-TYPE");
+    if (!responseTimestamp || !responseContentType) {
+      return responseText;
+    }
+    try {
+      return (0, import_saic_crypto.decryptSaicResponseBody)(responseText, responseTimestamp, responseContentType);
+    } catch (error) {
+      throw new Error(`SAIC ${context} response could not be decrypted: ${this.errorMessage(error)}`);
+    }
   }
   /**
    * Send a status request and normalize its response.
@@ -310,10 +411,10 @@ class SaicApiClient {
    * @param vin Vehicle identification number.
    * @param requestPath SAIC status endpoint path.
    * @param useEventId Whether this request asks the vehicle for a live response.
+   * @param signal Optional caller cancellation signal.
    */
-  async requestVehicleStatus(options, accessToken, vin, requestPath, useEventId) {
+  async requestVehicleStatus(options, accessToken, vin, requestPath, useEventId, signal) {
     var _a, _b;
-    const timestamp = String(this.now());
     const contentType = "application/json";
     const query = new URLSearchParams({
       vin: (0, import_node_crypto.createHash)("sha256").update(vin, "utf8").digest("hex"),
@@ -324,52 +425,69 @@ class SaicApiClient {
       "Accept-Encoding": "gzip",
       "Content-Type": `${contentType};charset=utf-8`,
       "ORIGINAL-CONTENT-TYPE": contentType,
-      "APP-SEND-DATE": timestamp,
       "APP-CONTENT-ENCRYPTED": "1",
       "APP-LANGUAGE-TYPE": "en",
-      "APP-VERIFICATION-STRING": (0, import_saic_crypto.createSaicRequestSignature)(
+      REGION: options.regionCode,
+      "tenant-id": options.tenantId,
+      "User-Type": "app",
+      "User-Agent": "Europe/2.1.0 (iPad; iOS 18.5; Scale/2.00)",
+      "blade-auth": accessToken
+    };
+    const baseUrl = options.baseUrl.endsWith("/") ? options.baseUrl : `${options.baseUrl}/`;
+    const requestUrl = new URL(`${requestPath.replace(/^\/+/, "")}?${query.toString()}`, baseUrl);
+    const deadline = this.monotonicNow() + (useEventId ? 3e4 : 15e3);
+    let eventId = "0";
+    let requestCount = 0;
+    let envelope;
+    let responseHeaders;
+    while (true) {
+      if (signal == null ? void 0 : signal.aborted) {
+        throw signal.reason;
+      }
+      if (useEventId && this.monotonicNow() >= deadline) {
+        throw new RetryableVehicleStatusError("SAIC vehicle status timed out while waiting for vehicle data");
+      }
+      if (requestCount >= 11) {
+        throw new RetryableVehicleStatusError("SAIC vehicle status event polling exceeded its request limit");
+      }
+      const timestamp = String(this.now());
+      const headers = { ...baseHeaders };
+      headers["APP-SEND-DATE"] = timestamp;
+      headers["APP-VERIFICATION-STRING"] = (0, import_saic_crypto.createSaicRequestSignature)(
         `${requestPath}?${query.toString()}`,
         options.tenantId,
         accessToken,
         timestamp,
         contentType,
         ""
-      ),
-      REGION: options.regionCode,
-      "tenant-id": options.tenantId,
-      "User-Type": "app",
-      "blade-auth": accessToken
-    };
-    const baseUrl = options.baseUrl.endsWith("/") ? options.baseUrl : `${options.baseUrl}/`;
-    const requestUrl = new URL(`${requestPath.replace(/^\/+/, "")}?${query.toString()}`, baseUrl);
-    const deadline = this.now() + (useEventId ? 3e4 : 15e3);
-    let eventId = "0";
-    let requestCount = 0;
-    let envelope;
-    let responseHeaders;
-    while (true) {
-      const headers = { ...baseHeaders };
+      );
       if (useEventId) {
         headers["event-id"] = eventId;
       }
-      let response;
+      let result;
       let requestStartedAt = this.now();
       try {
         requestCount++;
-        const requestTimeoutMs = useEventId ? 5e3 : Math.max(1, Math.min(15e3, deadline - this.now()));
+        const requestTimeoutMs = Math.ceil(
+          Math.max(1, Math.min(useEventId ? 5e3 : 15e3, deadline - this.monotonicNow()))
+        );
         requestStartedAt = this.now();
         this.debug(
           `GET ${requestPath} for ${vin}, request ${requestCount}, timeout ${requestTimeoutMs}ms, event-id ${useEventId ? eventId : "none"}`
         );
-        response = await this.fetchFunction(requestUrl, {
-          method: "GET",
-          headers,
-          signal: AbortSignal.timeout(requestTimeoutMs)
-        });
+        result = await this.fetchResponse(requestUrl, { method: "GET", headers }, requestTimeoutMs, signal);
         this.debug(
-          `GET ${requestPath} for ${vin} received response headers after ${this.now() - requestStartedAt}ms`
+          `GET ${requestPath} for ${vin} received response and body after ${this.now() - requestStartedAt}ms`
         );
       } catch (error) {
+        if (signal == null ? void 0 : signal.aborted) {
+          throw signal.reason;
+        }
+        if (error instanceof SaicBodyReadError) {
+          throw new RetryableVehicleStatusError(
+            `SAIC vehicle status response could not be read: ${error.message}`
+          );
+        }
         const details = error instanceof Error ? error.message : "Unknown network error";
         this.debug(
           `GET ${requestPath} for ${vin} failed after ${this.now() - requestStartedAt}ms before response: ${details}`
@@ -378,24 +496,22 @@ class SaicApiClient {
           `SAIC vehicle status request failed before a response was received: ${details}`
         );
       }
-      let responseText;
-      try {
-        responseText = await response.text();
-      } catch (error) {
-        const details = error instanceof Error ? error.message : "Unknown network error";
-        this.debug(`GET ${requestPath} for ${vin} response body read failed: ${details}`);
-        throw new RetryableVehicleStatusError(`SAIC vehicle status response could not be read: ${details}`);
-      }
+      const { response, body: responseText } = result;
       this.debug(
         `GET ${requestPath} for ${vin} returned HTTP ${response.status}, ${responseText.length} response characters`
       );
       if (!response.ok) {
-        const ErrorType = response.status === 429 || response.status >= 500 ? RetryableVehicleStatusError : Error;
-        throw new ErrorType(`SAIC vehicle status failed with HTTP status ${response.status}`);
+        if (response.status === 429 || response.status >= 500) {
+          throw new RetryableVehicleStatusError(
+            `SAIC vehicle status failed with HTTP status ${response.status}`
+          );
+        }
+        throw new SaicHttpError(
+          `SAIC vehicle status failed with HTTP status ${response.status}`,
+          response.status
+        );
       }
-      const responseTimestamp = response.headers.get("APP-SEND-DATE");
-      const responseContentType = response.headers.get("ORIGINAL-CONTENT-TYPE");
-      const decodedBody = responseTimestamp && responseContentType ? (0, import_saic_crypto.decryptSaicResponseBody)(responseText, responseTimestamp, responseContentType) : responseText;
+      const decodedBody = this.decodeResponseBody(response, responseText, "vehicle status");
       try {
         envelope = JSON.parse(decodedBody);
       } catch {
@@ -409,19 +525,22 @@ class SaicApiClient {
         `GET ${requestPath} for ${vin} returned SAIC code ${String(envelope.code)}, message: ${responseMessage}, data keys: ${Object.keys((_a = envelope.data) != null ? _a : {}).join(", ") || "none"}, next event-id: ${nextEventId != null ? nextEventId : "none"}`
       );
       const returnCode = Number(envelope.code);
+      if (returnCode === 401 || returnCode === 403) {
+        throw new SaicHttpError(`SAIC rejected vehicle status with code ${returnCode}`, returnCode);
+      }
       if (useEventId && ![2, 3, 7].includes(returnCode) && (Boolean(nextEventId) && envelope.data === void 0 || returnCode !== 0 && eventId !== "0")) {
-        if (this.now() >= deadline) {
+        if (this.monotonicNow() >= deadline) {
           throw new RetryableVehicleStatusError(
             envelope.message || "SAIC vehicle status timed out while waiting for vehicle data"
           );
         }
-        await this.wait(3e3);
+        await this.wait(Math.min(3e3, Math.max(0, deadline - this.monotonicNow())), signal);
         if (nextEventId) {
           eventId = nextEventId;
         }
         continue;
       }
-      if (useEventId && returnCode === 0 && envelope.data === void 0 && this.now() >= deadline) {
+      if (useEventId && returnCode === 0 && envelope.data === void 0 && this.monotonicNow() >= deadline) {
         throw new RetryableVehicleStatusError("SAIC vehicle status timed out while waiting for vehicle data");
       }
       break;
@@ -440,6 +559,9 @@ class SaicApiClient {
       throw new Error(
         `SAIC vehicle status response did not contain basic status data (code: ${String(envelope.code)}, response keys: ${responseKeys}, data type: ${dataType}, data keys: ${dataKeys}${responseEventId ? `, event-id: ${responseEventId}` : ""})`
       );
+    }
+    if (envelope.data.statusTime !== void 0 && envelope.data.statusTime !== null && (typeof envelope.data.statusTime !== "number" || !isVehicleStatusTimestampValid(envelope.data.statusTime, this.now()))) {
+      throw new Error("SAIC vehicle status timestamp is outside the trusted freshness window");
     }
     const rawStatus = envelope.data.basicVehicleStatus;
     const basicVehicleStatus = {};
@@ -471,6 +593,9 @@ class SaicApiClient {
     this.debug(
       `GET ${requestPath} for ${vin} parsed ${acceptedFields.length} status fields [${acceptedFields.join(", ")}]; ignored fields [${ignoredFields.join(", ") || "none"}]; unknown fields [${unknownFields.join(", ") || "none"}]`
     );
+    if (acceptedFields.length === 0) {
+      throw new Error("SAIC vehicle status response contained no usable vehicle fields");
+    }
     return {
       basicVehicleStatus,
       ...typeof envelope.data.statusTime === "number" && Number.isFinite(envelope.data.statusTime) ? { statusTime: envelope.data.statusTime } : {},
@@ -480,6 +605,9 @@ class SaicApiClient {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
-  SaicApiClient
+  SaicApiClient,
+  SaicHttpError,
+  isVehicleStatusNotOlder,
+  isVehicleStatusTimestampValid
 });
 //# sourceMappingURL=saic-client.js.map
