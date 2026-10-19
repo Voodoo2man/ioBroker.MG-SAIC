@@ -34,6 +34,7 @@ The adapter is not published yet. Install it through the ioBroker Admin adapter 
 
 - (Voodoo2man) Initial Version
 - (Voodoo2man) Retried transient live vehicle status errors using SAIC event IDs.
+- (Voodoo2man) Added localized Home Assistant-style names for vehicle status data points.
 
 ## License
 

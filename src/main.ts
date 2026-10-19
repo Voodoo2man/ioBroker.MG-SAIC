@@ -161,6 +161,7 @@ class MgSaic extends utils.Adapter {
 			const metadata = getVehicleStatusMetadata(key);
 			await this.extendObjectAsync(`${statusId}.${key}`, {
 				common: {
+					name: metadata.name,
 					type: metadata.type,
 					role: metadata.role,
 					...(metadata.unit ? { unit: metadata.unit } : {}),
