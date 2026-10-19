@@ -27,7 +27,7 @@ The adapter is not published yet. Install it through the ioBroker Admin adapter 
 
 ## Changelog
 
-### WORK IN PROGRESS
+### **WORK IN PROGRESS**
 
 - (Voodoo2man) Added the initial TypeScript adapter foundation, secure account settings, and configuration validation.
 - (Voodoo2man) Added regional SAIC OAuth login, account connection status, vehicle discovery, and a current status snapshot for each vehicle; automatic polling, controls, and India TAP remain unavailable.
