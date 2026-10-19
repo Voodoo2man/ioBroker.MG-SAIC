@@ -541,9 +541,6 @@ export class SaicApiClient {
 				continue;
 			}
 			const returnCode = Number(envelope.code);
-			if (useEventId && returnCode === 12808) {
-				throw new RetryableVehicleStatusError(envelope.message || 'SAIC vehicle status request timed out');
-			}
 			if (
 				useEventId &&
 				returnCode !== 0 &&

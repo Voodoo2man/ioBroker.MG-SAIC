@@ -334,7 +334,8 @@ describe('SaicApiClient vehicle status', () => {
 		expect(callCount).to.equal(2);
 	});
 
-	it('restarts live status after SAIC code 12808 instead of polling the expired event id', async () => {
+	it('continues polling the current event id after SAIC code 12808', async function () {
+		this.timeout(5_000);
 		const requestEventIds: string[] = [];
 		const waitDurations: number[] = [];
 		let callCount = 0;
@@ -343,6 +344,13 @@ describe('SaicApiClient vehicle status', () => {
 				requestEventIds.push(new Headers(init?.headers).get('event-id') ?? 'missing');
 				callCount += 1;
 				if (callCount === 1) {
+					return Promise.resolve(
+						new Response('{"code":0,"message":"success"}', {
+							headers: { 'event-id': 'event-123' },
+						}),
+					);
+				}
+				if (callCount === 2) {
 					return Promise.resolve(
 						new Response('{"code":12808,"message":"The request timed out, please try again later."}'),
 					);
@@ -359,8 +367,8 @@ describe('SaicApiClient vehicle status', () => {
 		expect(await client.getVehicleStatus(options, 'test-access-token', 'LSJWH4095RN166487')).to.deep.equal({
 			basicVehicleStatus: { lockStatus: 1 },
 		});
-		expect(requestEventIds).to.deep.equal(['0', '0']);
-		expect(waitDurations).to.deep.equal([15_000]);
+		expect(requestEventIds).to.deep.equal(['0', 'event-123', 'event-123']);
+		expect(waitDurations).to.deep.equal([]);
 	});
 
 	it('retries timed-out live HTTP waits until a response is received', async () => {
