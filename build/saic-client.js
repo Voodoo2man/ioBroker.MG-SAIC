@@ -338,7 +338,6 @@ class SaicApiClient {
       REGION: options.regionCode,
       "tenant-id": options.tenantId,
       "User-Type": "app",
-      "User-Agent": "Europe/2.1.0 (iPad; iOS 18.5; Scale/2.00)",
       "blade-auth": accessToken
     };
     const baseUrl = options.baseUrl.endsWith("/") ? options.baseUrl : `${options.baseUrl}/`;

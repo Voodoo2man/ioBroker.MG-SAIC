@@ -202,6 +202,7 @@ describe('SaicApiClient vehicle status', () => {
 		expect(requestUrl?.searchParams.get('vehStatusReqType')).to.equal('2');
 		expect(new Headers(requestInit?.headers).get('event-id')).to.equal('0');
 		expect(new Headers(requestInit?.headers).get('blade-auth')).to.equal('test-access-token');
+		expect(new Headers(requestInit?.headers).get('user-agent')).to.equal(null);
 	});
 
 	it('logs response metadata and field names without logging status values', async () => {
