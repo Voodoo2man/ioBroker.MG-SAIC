@@ -51,7 +51,8 @@
     "build/",
     "www/",
     "io-package.json",
-    "LICENSE"
+    "LICENSE",
+    "MG.png"
   ],
   "scripts": {
     "prebuild": "rimraf build",

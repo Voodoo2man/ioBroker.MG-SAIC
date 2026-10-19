@@ -1,5 +1,7 @@
 # ioBroker MG/SAIC
 
+![MG](MG.png)
+
 **The adapter foundation is under development. Global SAIC OAuth login is implemented, but vehicle discovery, telemetry, commands, polling, and India TAP are not implemented yet.** The adapter can verify account authentication and exposes diagnostic states; it does not retrieve vehicle data.
 
 This is an unofficial community project and is not affiliated with or endorsed by MG, SAIC, or the iSmart service.
