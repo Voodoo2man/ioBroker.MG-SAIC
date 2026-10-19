@@ -7,7 +7,7 @@
 			"label": "iSmart account",
 			"innerStyle": {
 				"maxWidth": 1040,
-				"margin": "0 auto",
+				"margin": "0",
 				"padding": "8px 16px"
 			},
 			"items": {
