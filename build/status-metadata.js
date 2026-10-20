@@ -39,12 +39,51 @@ function getVehicleStatusGroup(key) {
   if (/Beam|Light/.test(key)) {
     return "lighting";
   }
-  if (/battery|Battery|fuel|Fuel|Range|range|Soc|SOC|Charging|charging|ElecRng|elecRng/i.test(key)) {
+  if (key === "extendedData1" || /battery|Battery|fuel|Fuel|Range|range|Soc|SOC|Charging|charging|ElecRng|elecRng/i.test(key)) {
     return "energy";
   }
   return "general";
 }
 const statusNames = {
+  extendedData1: {
+    en: "Battery state of charge",
+    de: "Batterie-Ladezustand",
+    ru: "\u0423\u0440\u043E\u0432\u0435\u043D\u044C \u0437\u0430\u0440\u044F\u0434\u0430 \u0431\u0430\u0442\u0430\u0440\u0435\u0438",
+    pt: "N\xEDvel de carga da bateria",
+    nl: "Batterijlading",
+    fr: "Niveau de charge de la batterie",
+    it: "Livello di carica della batteria",
+    es: "Nivel de carga de la bater\xEDa",
+    pl: "Poziom na\u0142adowania baterii",
+    uk: "\u0420\u0456\u0432\u0435\u043D\u044C \u0437\u0430\u0440\u044F\u0434\u0443 \u0431\u0430\u0442\u0430\u0440\u0435\u0457",
+    "zh-cn": "\u7535\u6C60\u7535\u91CF"
+  },
+  gpsLatitude: {
+    en: "GPS latitude",
+    de: "GPS-Breitengrad",
+    ru: "\u0428\u0438\u0440\u043E\u0442\u0430 GPS",
+    pt: "Latitude GPS",
+    nl: "GPS-breedtegraad",
+    fr: "Latitude GPS",
+    it: "Latitudine GPS",
+    es: "Latitud GPS",
+    pl: "Szeroko\u015B\u0107 geograficzna GPS",
+    uk: "\u0428\u0438\u0440\u043E\u0442\u0430 GPS",
+    "zh-cn": "GPS \u7EAC\u5EA6"
+  },
+  gpsLongitude: {
+    en: "GPS longitude",
+    de: "GPS-L\xE4ngengrad",
+    ru: "\u0414\u043E\u043B\u0433\u043E\u0442\u0430 GPS",
+    pt: "Longitude GPS",
+    nl: "GPS-lengtegraad",
+    fr: "Longitude GPS",
+    it: "Longitudine GPS",
+    es: "Longitud GPS",
+    pl: "D\u0142ugo\u015B\u0107 geograficzna GPS",
+    uk: "\u0414\u043E\u0432\u0433\u043E\u0442\u0430 GPS",
+    "zh-cn": "GPS \u7ECF\u5EA6"
+  },
   batteryVoltage: {
     en: "Auxiliary battery voltage",
     de: "Spannung der 12-V-Batterie",
@@ -577,6 +616,10 @@ const statusUnits = {
   batteryVoltage: "V",
   currentJourneyDistance: "km",
   exteriorTemperature: "\xB0C",
+  extendedData1: "%",
+  gpsAltitude: "m",
+  gpsLatitude: "\xB0",
+  gpsLongitude: "\xB0",
   frontLeftTyrePressure: "bar",
   frontRightTyrePressure: "bar",
   fuelLevelPrc: "%",

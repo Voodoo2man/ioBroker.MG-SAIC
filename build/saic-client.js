@@ -40,45 +40,6 @@ class SaicHttpError extends Error {
     this.status = status;
   }
 }
-const vehicleStatusFields = [
-  "batteryVoltage",
-  "bonnetStatus",
-  "bootStatus",
-  "canBusActive",
-  "currentJourneyDistance",
-  "dippedBeamStatus",
-  "driverDoor",
-  "driverWindow",
-  "engineStatus",
-  "exteriorTemperature",
-  "frontLeftTyrePressure",
-  "frontRightTyrePressure",
-  "fuelLevelPrc",
-  "fuelRange",
-  "fuelRangeElec",
-  "handBrake",
-  "interiorTemperature",
-  "lockStatus",
-  "mileage",
-  "passengerDoor",
-  "passengerWindow",
-  "rearLeftDoor",
-  "rearLeftTyrePressure",
-  "rearLeftWindow",
-  "rearRightDoor",
-  "rearRightTyrePressure",
-  "rearRightWindow",
-  "remoteClimateStatus",
-  "secondRowLeftSeatHeatLevel",
-  "secondRowRightSeatHeatLevel",
-  "sideLightStatus",
-  "steeringHeatLevel",
-  "steeringWheelHeatFailureReason",
-  "sunroofStatus",
-  "vehElecRngDsp",
-  "vehicleAlarmStatus",
-  "wheelTyreMonitorStatus"
-];
 function isVehicleStatusTimestampValid(statusTime, now) {
   if (statusTime === void 0) {
     return true;
@@ -567,31 +528,31 @@ class SaicApiClient {
     const basicVehicleStatus = {};
     const acceptedFields = [];
     const ignoredFields = [];
-    for (const field of vehicleStatusFields) {
-      const value = rawStatus[field];
+    for (const [field, value] of Object.entries(rawStatus)) {
       if (typeof value === "number" && Number.isFinite(value) && value !== -128) {
         basicVehicleStatus[field] = value;
         acceptedFields.push(field);
-      } else if (value !== void 0) {
+      } else {
         ignoredFields.push(field);
       }
     }
-    const unknownFields = Object.keys(rawStatus).filter(
-      (field) => !vehicleStatusFields.includes(field)
-    );
     const gpsPosition = envelope.data.gpsPosition;
     if (gpsPosition && typeof gpsPosition === "object" && !Array.isArray(gpsPosition)) {
       const wayPoint = gpsPosition.wayPoint;
       if (wayPoint && typeof wayPoint === "object" && !Array.isArray(wayPoint)) {
-        const speed = wayPoint.speed;
-        if (typeof speed === "number" && Number.isFinite(speed) && speed !== -128) {
-          basicVehicleStatus.speed = speed;
-          acceptedFields.push("speed");
+        for (const [field, value] of Object.entries(wayPoint)) {
+          if (typeof value === "number" && Number.isFinite(value) && value !== -128) {
+            const statusField = field === "speed" ? "speed" : `gps${field[0].toUpperCase()}${field.slice(1)}`;
+            basicVehicleStatus[statusField] = value;
+            acceptedFields.push(statusField);
+          } else {
+            ignoredFields.push(`gpsPosition.wayPoint.${field}`);
+          }
         }
       }
     }
     this.debug(
-      `GET ${requestPath} for ${vin} parsed ${acceptedFields.length} status fields [${acceptedFields.join(", ")}]; ignored fields [${ignoredFields.join(", ") || "none"}]; unknown fields [${unknownFields.join(", ") || "none"}]`
+      `GET ${requestPath} for ${vin} parsed ${acceptedFields.length} status fields [${acceptedFields.join(", ")}]; ignored fields [${ignoredFields.join(", ") || "none"}]`
     );
     if (acceptedFields.length === 0) {
       throw new Error("SAIC vehicle status response contained no usable vehicle fields");

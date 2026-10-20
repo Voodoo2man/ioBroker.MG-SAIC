@@ -60,7 +60,7 @@ export interface SaicVehicleStatus {
 	statusTime?: number;
 	/** Online flag returned by SAIC's cached status endpoint. */
 	onlineStatus?: number;
-	/** Allowlisted numeric basic vehicle status values. */
+	/** Numeric basic vehicle status values, including fields added by SAIC. */
 	basicVehicleStatus: Record<string, number>;
 }
 
@@ -97,47 +97,6 @@ export class SaicHttpError extends Error {
 		super(message);
 	}
 }
-
-/** Numeric basic-status fields accepted from the SAIC response. */
-const vehicleStatusFields = [
-	'batteryVoltage',
-	'bonnetStatus',
-	'bootStatus',
-	'canBusActive',
-	'currentJourneyDistance',
-	'dippedBeamStatus',
-	'driverDoor',
-	'driverWindow',
-	'engineStatus',
-	'exteriorTemperature',
-	'frontLeftTyrePressure',
-	'frontRightTyrePressure',
-	'fuelLevelPrc',
-	'fuelRange',
-	'fuelRangeElec',
-	'handBrake',
-	'interiorTemperature',
-	'lockStatus',
-	'mileage',
-	'passengerDoor',
-	'passengerWindow',
-	'rearLeftDoor',
-	'rearLeftTyrePressure',
-	'rearLeftWindow',
-	'rearRightDoor',
-	'rearRightTyrePressure',
-	'rearRightWindow',
-	'remoteClimateStatus',
-	'secondRowLeftSeatHeatLevel',
-	'secondRowRightSeatHeatLevel',
-	'sideLightStatus',
-	'steeringHeatLevel',
-	'steeringWheelHeatFailureReason',
-	'sunroofStatus',
-	'vehElecRngDsp',
-	'vehicleAlarmStatus',
-	'wheelTyreMonitorStatus',
-] as const;
 
 /**
  * Accept missing timestamps, but reject implausibly old or future vehicle data.
@@ -726,31 +685,32 @@ export class SaicApiClient {
 		const basicVehicleStatus: Record<string, number> = {};
 		const acceptedFields: string[] = [];
 		const ignoredFields: string[] = [];
-		for (const field of vehicleStatusFields) {
-			const value = rawStatus[field];
+		for (const [field, value] of Object.entries(rawStatus)) {
 			if (typeof value === 'number' && Number.isFinite(value) && value !== -128) {
 				basicVehicleStatus[field] = value;
 				acceptedFields.push(field);
-			} else if (value !== undefined) {
+			} else {
 				ignoredFields.push(field);
 			}
 		}
-		const unknownFields = Object.keys(rawStatus).filter(
-			field => !(vehicleStatusFields as readonly string[]).includes(field),
-		);
 		const gpsPosition = envelope.data.gpsPosition;
 		if (gpsPosition && typeof gpsPosition === 'object' && !Array.isArray(gpsPosition)) {
 			const wayPoint = (gpsPosition as Record<string, unknown>).wayPoint;
 			if (wayPoint && typeof wayPoint === 'object' && !Array.isArray(wayPoint)) {
-				const speed = (wayPoint as Record<string, unknown>).speed;
-				if (typeof speed === 'number' && Number.isFinite(speed) && speed !== -128) {
-					basicVehicleStatus.speed = speed;
-					acceptedFields.push('speed');
+				for (const [field, value] of Object.entries(wayPoint as Record<string, unknown>)) {
+					if (typeof value === 'number' && Number.isFinite(value) && value !== -128) {
+						const statusField =
+							field === 'speed' ? 'speed' : `gps${field[0].toUpperCase()}${field.slice(1)}`;
+						basicVehicleStatus[statusField] = value;
+						acceptedFields.push(statusField);
+					} else {
+						ignoredFields.push(`gpsPosition.wayPoint.${field}`);
+					}
 				}
 			}
 		}
 		this.debug(
-			`GET ${requestPath} for ${vin} parsed ${acceptedFields.length} status fields [${acceptedFields.join(', ')}]; ignored fields [${ignoredFields.join(', ') || 'none'}]; unknown fields [${unknownFields.join(', ') || 'none'}]`,
+			`GET ${requestPath} for ${vin} parsed ${acceptedFields.length} status fields [${acceptedFields.join(', ')}]; ignored fields [${ignoredFields.join(', ') || 'none'}]`,
 		);
 		if (acceptedFields.length === 0) {
 			throw new Error('SAIC vehicle status response contained no usable vehicle fields');

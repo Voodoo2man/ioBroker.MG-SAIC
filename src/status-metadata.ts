@@ -47,13 +47,55 @@ export function getVehicleStatusGroup(key: string): VehicleStatusGroup {
 	if (/Beam|Light/.test(key)) {
 		return 'lighting';
 	}
-	if (/battery|Battery|fuel|Fuel|Range|range|Soc|SOC|Charging|charging|ElecRng|elecRng/i.test(key)) {
+	if (
+		key === 'extendedData1' ||
+		/battery|Battery|fuel|Fuel|Range|range|Soc|SOC|Charging|charging|ElecRng|elecRng/i.test(key)
+	) {
 		return 'energy';
 	}
 	return 'general';
 }
 
 const statusNames: Record<string, LocalizedStatusName> = {
+	extendedData1: {
+		en: 'Battery state of charge',
+		de: 'Batterie-Ladezustand',
+		ru: 'Уровень заряда батареи',
+		pt: 'Nível de carga da bateria',
+		nl: 'Batterijlading',
+		fr: 'Niveau de charge de la batterie',
+		it: 'Livello di carica della batteria',
+		es: 'Nivel de carga de la batería',
+		pl: 'Poziom naładowania baterii',
+		uk: 'Рівень заряду батареї',
+		'zh-cn': '电池电量',
+	},
+	gpsLatitude: {
+		en: 'GPS latitude',
+		de: 'GPS-Breitengrad',
+		ru: 'Широта GPS',
+		pt: 'Latitude GPS',
+		nl: 'GPS-breedtegraad',
+		fr: 'Latitude GPS',
+		it: 'Latitudine GPS',
+		es: 'Latitud GPS',
+		pl: 'Szerokość geograficzna GPS',
+		uk: 'Широта GPS',
+		'zh-cn': 'GPS 纬度',
+	},
+	gpsLongitude: {
+		en: 'GPS longitude',
+		de: 'GPS-Längengrad',
+		ru: 'Долгота GPS',
+		pt: 'Longitude GPS',
+		nl: 'GPS-lengtegraad',
+		fr: 'Longitude GPS',
+		it: 'Longitudine GPS',
+		es: 'Longitud GPS',
+		pl: 'Długość geograficzna GPS',
+		uk: 'Довгота GPS',
+		'zh-cn': 'GPS 经度',
+	},
 	batteryVoltage: {
 		en: 'Auxiliary battery voltage',
 		de: 'Spannung der 12-V-Batterie',
@@ -588,6 +630,10 @@ const statusUnits: Record<string, string> = {
 	batteryVoltage: 'V',
 	currentJourneyDistance: 'km',
 	exteriorTemperature: '°C',
+	extendedData1: '%',
+	gpsAltitude: 'm',
+	gpsLatitude: '°',
+	gpsLongitude: '°',
 	frontLeftTyrePressure: 'bar',
 	frontRightTyrePressure: 'bar',
 	fuelLevelPrc: '%',

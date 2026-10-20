@@ -210,7 +210,7 @@ describe('SaicApiClient vehicle status', () => {
 		expect(callCount).to.equal(1);
 	});
 
-	it('requests status with a hashed VIN and filters unknown or unavailable fields', async () => {
+	it('requests status with a hashed VIN and retains numeric fields while filtering unavailable values', async () => {
 		let requestUrl: URL | undefined;
 		let requestInit: RequestInit | undefined;
 		const fetchFunction: typeof fetch = (input, init) => {
@@ -224,15 +224,19 @@ describe('SaicApiClient vehicle status', () => {
 							statusTime: 1_700_000_000,
 							basicVehicleStatus: {
 								batteryVoltage: 142,
+								extendedData1: 63,
 								fuelLevelPrc: 0,
 								mileage: -128,
 								remoteClimateStatus: 2,
 								vehicleAlarmStatus: 1,
 								wheelTyreMonitorStatus: 2,
+								newSaicStatusValue: 17,
 								unexpectedValue: 5,
 								lockStatus: 'locked',
 							},
-							gpsPosition: { wayPoint: { speed: 42 } },
+							gpsPosition: {
+								wayPoint: { speed: 42, latitude: 51.5, longitude: -0.12, unavailable: -128 },
+							},
 						},
 					}),
 				),
@@ -244,10 +248,15 @@ describe('SaicApiClient vehicle status', () => {
 			statusTime: 1_700_000_000,
 			basicVehicleStatus: {
 				batteryVoltage: 142,
+				extendedData1: 63,
 				fuelLevelPrc: 0,
 				remoteClimateStatus: 2,
 				vehicleAlarmStatus: 1,
 				wheelTyreMonitorStatus: 2,
+				newSaicStatusValue: 17,
+				unexpectedValue: 5,
+				gpsLatitude: 51.5,
+				gpsLongitude: -0.12,
 				speed: 42,
 			},
 		});
@@ -351,7 +360,7 @@ describe('SaicApiClient vehicle status', () => {
 
 	it('rejects status data with no recognized usable fields', async () => {
 		const client = new SaicApiClient(() =>
-			Promise.resolve(new Response('{"code":0,"data":{"basicVehicleStatus":{"unexpected":5}}}')),
+			Promise.resolve(new Response('{"code":0,"data":{"basicVehicleStatus":{"unexpected":-128}}}')),
 		);
 
 		try {

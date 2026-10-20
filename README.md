@@ -21,7 +21,7 @@ The Admin form accepts an email address or phone number, an optional phone count
 - Each discovered vehicle has a `vehicles.<VIN>` device with its VIN and available name, brand, model, series, year, color, and account flags.
 - The adapter requests live status for each vehicle at startup and at the configured interval. If the live request fails, it also requests SAIC's last cached status as a fallback. Values are grouped under `vehicles.<VIN>.status.<group>` and `vehicles.<VIN>.cachedStatus.<group>` channels (for example, `driving`, `climate`, `tires`, and `energy`). Existing flat status states are moved to the grouped paths when refreshed.
 - Configure the automatic status polling interval in seconds in the adapter settings (default: 1800 seconds). Write `true` to `commands.refresh` to request an immediate refresh.
-- Status measurements are converted from documented raw API scales to display units where known (including GPS speed in km/h, distance in km, voltage in V, and tyre pressure in bar); binary status fields are exposed as boolean indicators, while `remoteClimateStatus` retains its numeric API codes. Status timestamps older than 24 hours or more than five minutes in the future are rejected; responses without a timestamp remain usable, and an older live response cannot replace a newer one. Other measurements retain their API values. Persistence and India TAP are not available yet.
+- All finite numeric fields in SAIC's `basicVehicleStatus` and numeric GPS waypoint fields are exposed, including fields added by SAIC that the adapter does not yet have a friendly name for. The `extendedData1` field is exposed as battery state of charge; on some vehicle types its meaning may differ. Known measurements are converted from documented raw API scales where available; `remoteClimateStatus` retains its numeric API codes. Status timestamps older than 24 hours or more than five minutes in the future are rejected; responses without a timestamp remain usable, and an older live response cannot replace a newer one. Data from separate charging endpoints is not currently requested. Persistence and India TAP are not available yet.
 - Home Assistant is not a runtime dependency.
 
 ## Installation
@@ -34,6 +34,7 @@ The adapter is not published yet. Install it through the ioBroker Admin adapter 
 
 - (Voodoo2man) Initial Version
 - (Voodoo2man) Corrected live-status signing and value mappings, bounded retries, and handled shutdown cancellation and stale responses.
+- (Voodoo2man) Exposed additional numeric SAIC status and GPS values, including battery state of charge.
 
 
 ## License

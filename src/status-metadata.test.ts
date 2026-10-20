@@ -9,6 +9,8 @@ describe('getVehicleStatusMetadata', () => {
 		expect(getVehicleStatusGroup('frontLeftTyrePressure')).to.equal('tires');
 		expect(getVehicleStatusGroup('sideLightStatus')).to.equal('lighting');
 		expect(getVehicleStatusGroup('batteryVoltage')).to.equal('energy');
+		expect(getVehicleStatusGroup('extendedData1')).to.equal('energy');
+		expect(getVehicleStatusGroup('gpsLatitude')).to.equal('general');
 		expect(getVehicleStatusGroup('wheelTyreMonitorStatus')).to.equal('tires');
 		expect(getVehicleStatusGroup('statusTime')).to.equal('general');
 	});
@@ -25,6 +27,8 @@ describe('getVehicleStatusMetadata', () => {
 
 	it('assigns units to known measurements', () => {
 		expect(getVehicleStatusMetadata('batteryVoltage')).to.include({ type: 'number', role: 'value', unit: 'V' });
+		expect(getVehicleStatusMetadata('extendedData1')).to.include({ type: 'number', role: 'value', unit: '%' });
+		expect(getVehicleStatusMetadata('gpsLatitude')).to.include({ type: 'number', role: 'value', unit: '°' });
 		expect(getVehicleStatusMetadata('fuelLevelPrc').unit).to.equal('%');
 		expect(getVehicleStatusMetadata('interiorTemperature').unit).to.equal('°C');
 		expect(getVehicleStatusMetadata('fuelRange').unit).to.equal('km');
@@ -38,6 +42,7 @@ describe('getVehicleStatusMetadata', () => {
 		expect(normalizeVehicleStatusValue('lockStatus', 1)).to.equal(true);
 		expect(normalizeVehicleStatusValue('mileage', 40001)).to.equal(4000.1);
 		expect(normalizeVehicleStatusValue('batteryVoltage', 142)).to.equal(14.2);
+		expect(normalizeVehicleStatusValue('extendedData1', 63)).to.equal(63);
 		expect(normalizeVehicleStatusValue('fuelRangeElec', 3240)).to.equal(324);
 		expect(normalizeVehicleStatusValue('currentJourneyDistance', 125)).to.equal(12.5);
 		expect(normalizeVehicleStatusValue('frontLeftTyrePressure', 62)).to.equal(2.48);
