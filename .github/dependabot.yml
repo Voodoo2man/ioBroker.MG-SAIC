@@ -9,9 +9,8 @@ updates:
     open-pull-requests-limit: 15
     cooldown:
       default-days: 7
-      exclude:
-        - "@typescript-eslint/*"
-        - "typescript-eslint"
+      include:
+        - "@iobroker/adapter-core"
     ignore:
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
