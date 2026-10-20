@@ -45,6 +45,48 @@ const vehicleCommands = [
   { id: "chargingPortUnlock" },
   { id: "findMyCar" }
 ];
+const commandGroups = {
+  lock: "access",
+  unlock: "access",
+  openBoot: "access",
+  climateStart: "climate",
+  climateStop: "climate",
+  frontDefrost: "climate",
+  rearWindowHeatStart: "heating",
+  rearWindowHeatStop: "heating",
+  batteryHeatStart: "heating",
+  batteryHeatStop: "heating",
+  chargingStart: "charging",
+  chargingStop: "charging",
+  chargingPortLock: "charging",
+  chargingPortUnlock: "charging",
+  findMyCar: "vehicle"
+};
+const settingGroups = {
+  driverSeatHeatLevel: "heating",
+  passengerSeatHeatLevel: "heating",
+  climateTemperature: "climate",
+  chargeTargetSoc: "charging",
+  chargingCurrentLimit: "charging",
+  chargingScheduleStart: "schedules",
+  chargingScheduleEnd: "schedules",
+  chargingScheduleMode: "schedules",
+  batteryHeatingScheduleEnabled: "schedules",
+  batteryHeatingScheduleStart: "schedules"
+};
+const actionGroups = {
+  climateTemperatureApply: "climate",
+  chargingSettingsApply: "charging",
+  chargingScheduleApply: "schedules",
+  batteryHeatingScheduleApply: "schedules"
+};
+function vehicleCommandPath(vin, id) {
+  const group = id in commandGroups ? commandGroups[id] : id in settingGroups ? settingGroups[id] : actionGroups[id];
+  if (!group) {
+    throw new Error(`Missing command group for ${id}`);
+  }
+  return `vehicles.${vin}.commands.${group}.${id}`;
+}
 const settingActions = [
   { id: "climateTemperatureApply" },
   { id: "chargingSettingsApply" },
@@ -362,50 +404,42 @@ class MgSaic extends utils.Adapter {
     if (!state || state.ack) {
       return;
     }
-    const settingAction = settingActions.find(({ id: actionId }) => id.endsWith(`.commands.${actionId}`));
+    const settingAction = settingActions.find(
+      ({ id: actionId }) => this.vehicles.some(({ vin }) => id === `${this.namespace}.${vehicleCommandPath(vin, actionId)}`)
+    );
     const settingVehicle = this.vehicles.find(
-      ({ vin }) => id === `${this.namespace}.vehicles.${vin}.commands.${settingAction == null ? void 0 : settingAction.id}`
+      ({ vin }) => settingAction && id === `${this.namespace}.${vehicleCommandPath(vin, settingAction.id)}`
     );
     if (settingAction && settingVehicle) {
       void this.executeVehicleSetting(settingVehicle.vin, settingAction.id);
       return;
     }
-    const settingInputVehicle = this.vehicles.find(
-      ({ vin }) => id.startsWith(`${this.namespace}.vehicles.${vin}.commands.`)
-    );
-    const settingInputId = settingInputVehicle ? id.slice(`${this.namespace}.vehicles.${settingInputVehicle.vin}.commands.`.length) : "";
-    if (settingInputVehicle && [
-      "climateTemperature",
-      "chargeTargetSoc",
-      "chargingCurrentLimit",
-      "chargingScheduleStart",
-      "chargingScheduleEnd",
-      "chargingScheduleMode",
-      "batteryHeatingScheduleEnabled",
-      "batteryHeatingScheduleStart"
-    ].includes(settingInputId)) {
-      void this.setStateAsync(`vehicles.${settingInputVehicle.vin}.commands.${settingInputId}`, {
+    const settingInput = this.vehicles.flatMap(
+      ({ vin }) => Object.keys(settingGroups).filter((stateId) => stateId !== "driverSeatHeatLevel" && stateId !== "passengerSeatHeatLevel").map((stateId) => ({ vin, stateId }))
+    ).find(({ vin, stateId }) => id === `${this.namespace}.${vehicleCommandPath(vin, stateId)}`);
+    if (settingInput) {
+      void this.setStateAsync(vehicleCommandPath(settingInput.vin, settingInput.stateId), {
         val: state.val,
         ack: true
       });
       return;
     }
-    const seatHeatingVehicle = this.vehicles.find(
-      ({ vin }) => ["driverSeatHeatLevel", "passengerSeatHeatLevel"].some(
-        (stateId) => id === `${this.namespace}.vehicles.${vin}.commands.${stateId}`
-      )
-    );
-    if (seatHeatingVehicle && (id.endsWith(".driverSeatHeatLevel") || id.endsWith(".passengerSeatHeatLevel"))) {
-      const seat = id.endsWith(".driverSeatHeatLevel") ? "driver" : "passenger";
-      void this.executeSeatHeating(seatHeatingVehicle.vin, seat, state.val);
+    const seatHeating = this.vehicles.flatMap(
+      ({ vin }) => ["driverSeatHeatLevel", "passengerSeatHeatLevel"].map((stateId) => ({ vin, stateId }))
+    ).find(({ vin, stateId }) => id === `${this.namespace}.${vehicleCommandPath(vin, stateId)}`);
+    if (seatHeating) {
+      const seat = seatHeating.stateId === "driverSeatHeatLevel" ? "driver" : "passenger";
+      void this.executeSeatHeating(seatHeating.vin, seat, state.val);
       return;
     }
     if (state.val !== true) {
       return;
     }
-    const commandEntry = vehicleCommands.find(({ id: commandId }) => id.endsWith(`.commands.${commandId}`));
+    const commandEntry = vehicleCommands.find(
+      ({ id: commandId }) => this.vehicles.some(({ vin }) => id === `${this.namespace}.${vehicleCommandPath(vin, commandId)}`)
+    );
     const vehicle = this.vehicles.find(
-      ({ vin }) => id === `${this.namespace}.vehicles.${vin}.commands.${commandEntry == null ? void 0 : commandEntry.id}`
+      ({ vin }) => commandEntry && id === `${this.namespace}.${vehicleCommandPath(vin, commandEntry.id)}`
     );
     if (!commandEntry || !vehicle) {
       return;
@@ -413,7 +447,7 @@ class MgSaic extends utils.Adapter {
     void this.executeVehicleCommand(vehicle.vin, commandEntry.id);
   }
   async executeSeatHeating(vin, seat, value) {
-    const stateId = `vehicles.${vin}.commands.${seat}SeatHeatLevel`;
+    const stateId = vehicleCommandPath(vin, `${seat}SeatHeatLevel`);
     if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > 3) {
       await this.setStateAsync(stateId, { ack: true });
       this.log.warn(`Ignored ${seat} seat heating level for ${vin}: expected an integer from 0 to 3`);
@@ -453,7 +487,7 @@ class MgSaic extends utils.Adapter {
     }
   }
   async executeVehicleSetting(vin, action) {
-    const stateId = `vehicles.${vin}.commands.${action}`;
+    const stateId = vehicleCommandPath(vin, action);
     if (this.vehicleCommandsInProgress.has(vin)) {
       await this.setStateAsync(stateId, { val: false, ack: true });
       this.log.warn(`Ignored ${action} for ${vin}: another vehicle command is still running`);
@@ -488,14 +522,14 @@ class MgSaic extends utils.Adapter {
   }
   async readVehicleSetting(vin, action) {
     const readNumber = async (id) => {
-      const state = await this.getStateAsync(`vehicles.${vin}.commands.${id}`);
+      const state = await this.getStateAsync(vehicleCommandPath(vin, id));
       if (!state || typeof state.val !== "number" || !Number.isFinite(state.val)) {
         throw new Error(`Setting ${id} must contain a finite number`);
       }
       return state.val;
     };
     const readString = async (id) => {
-      const state = await this.getStateAsync(`vehicles.${vin}.commands.${id}`);
+      const state = await this.getStateAsync(vehicleCommandPath(vin, id));
       if (!state || typeof state.val !== "string") {
         throw new Error(`Setting ${id} must contain a time in HH:MM format`);
       }
@@ -523,7 +557,7 @@ class MgSaic extends utils.Adapter {
         mode: await readNumber("chargingScheduleMode")
       };
     }
-    const enabled = await this.getStateAsync(`vehicles.${vin}.commands.batteryHeatingScheduleEnabled`);
+    const enabled = await this.getStateAsync(vehicleCommandPath(vin, "batteryHeatingScheduleEnabled"));
     if (!enabled || typeof enabled.val !== "boolean") {
       throw new Error("Battery heating schedule enabled must be boolean");
     }
@@ -534,7 +568,7 @@ class MgSaic extends utils.Adapter {
     };
   }
   async executeVehicleCommand(vin, command) {
-    const stateId = `vehicles.${vin}.commands.${command}`;
+    const stateId = vehicleCommandPath(vin, command);
     if (this.vehicleCommandsInProgress.has(vin)) {
       await this.setStateAsync(stateId, { val: false, ack: true });
       this.log.warn(`Ignored ${command} command for ${vin}: another vehicle command is still running`);
@@ -599,10 +633,10 @@ class MgSaic extends utils.Adapter {
       const groupId = `${statusId}.${group}`;
       await this.setObjectNotExistsAsync(groupId, {
         type: "channel",
-        common: { name: (0, import_runtime_translations.getRuntimeName)(group) },
+        common: { name: (0, import_runtime_translations.getRuntimeName)(`commandGroup_${group}`) },
         native: {}
       });
-      await this.extendObjectAsync(groupId, { common: { name: (0, import_runtime_translations.getRuntimeName)(group) } });
+      await this.extendObjectAsync(groupId, { common: { name: (0, import_runtime_translations.getRuntimeName)(`commandGroup_${group}`) } });
       if (this.stopping) {
         return;
       }
@@ -663,6 +697,7 @@ class MgSaic extends utils.Adapter {
     }
   }
   async createVehicleObjects(vehicle) {
+    var _a;
     if (this.stopping) {
       return;
     }
@@ -693,8 +728,18 @@ class MgSaic extends utils.Adapter {
       native: {}
     });
     await this.extendObjectAsync(commandsId, { common: { name: (0, import_runtime_translations.getRuntimeName)("commands") } });
+    for (const group of ["access", "climate", "heating", "charging", "schedules", "vehicle"]) {
+      const groupId = `${commandsId}.${group}`;
+      await this.setObjectNotExistsAsync(groupId, {
+        type: "channel",
+        common: { name: (0, import_runtime_translations.getRuntimeName)(group) },
+        native: {}
+      });
+      await this.extendObjectAsync(groupId, { common: { name: (0, import_runtime_translations.getRuntimeName)(group) } });
+    }
     for (const command of vehicleCommands) {
-      await this.setObjectNotExistsAsync(`${commandsId}.${command.id}`, {
+      const commandId = vehicleCommandPath(vehicle.vin, command.id);
+      await this.setObjectNotExistsAsync(commandId, {
         type: "state",
         common: {
           name: (0, import_runtime_translations.getRuntimeName)(command.id),
@@ -705,10 +750,10 @@ class MgSaic extends utils.Adapter {
         },
         native: {}
       });
-      await this.extendObjectAsync(`${commandsId}.${command.id}`, {
+      await this.extendObjectAsync(commandId, {
         common: { name: (0, import_runtime_translations.getRuntimeName)(command.id) }
       });
-      await this.setStateAsync(`${commandsId}.${command.id}`, { val: false, ack: true });
+      await this.setStateAsync(commandId, { val: false, ack: true });
     }
     const settingStates = [
       {
@@ -793,8 +838,10 @@ class MgSaic extends utils.Adapter {
       }
     ];
     for (const setting of settingStates) {
-      const stateId = `${commandsId}.${setting.id}`;
+      const stateId = vehicleCommandPath(vehicle.vin, setting.id);
+      const legacyStateId = `${commandsId}.${setting.id}`;
       const stateObject = await this.getObjectAsync(stateId);
+      const legacyState = await this.getStateAsync(legacyStateId);
       await this.setObjectNotExistsAsync(stateId, {
         type: "state",
         common: {
@@ -814,7 +861,7 @@ class MgSaic extends utils.Adapter {
       });
       const currentState = await this.getStateAsync(stateId);
       if (!currentState || currentState.val === null) {
-        await this.setStateAsync(stateId, { val: setting.def, ack: true });
+        await this.setStateAsync(stateId, { val: (_a = legacyState == null ? void 0 : legacyState.val) != null ? _a : setting.def, ack: true });
       } else if (typeof currentState.val === "number" && (stateObject == null ? void 0 : stateObject.common.unit) !== setting.unit) {
         if (setting.id === "climateTemperature") {
           await this.setStateAsync(stateId, { val: currentState.val + 14, ack: true });
@@ -837,17 +884,23 @@ class MgSaic extends utils.Adapter {
           ...setting.states ? { states: setting.states } : {}
         }
       });
+      await this.delObjectAsync(legacyStateId);
     }
     for (const action of settingActions) {
-      await this.setObjectNotExistsAsync(`${commandsId}.${action.id}`, {
+      const actionId = vehicleCommandPath(vehicle.vin, action.id);
+      await this.setObjectNotExistsAsync(actionId, {
         type: "state",
         common: { name: (0, import_runtime_translations.getRuntimeName)(action.id), type: "boolean", role: "button", read: false, write: true },
         native: {}
       });
-      await this.extendObjectAsync(`${commandsId}.${action.id}`, {
+      await this.extendObjectAsync(actionId, {
         common: { name: (0, import_runtime_translations.getRuntimeName)(action.id) }
       });
-      await this.setStateAsync(`${commandsId}.${action.id}`, { val: false, ack: true });
+      await this.setStateAsync(actionId, { val: false, ack: true });
+      await this.delObjectAsync(`${commandsId}.${action.id}`);
+    }
+    for (const command of vehicleCommands) {
+      await this.delObjectAsync(`${commandsId}.${command.id}`);
     }
     this.subscribeStates(`${commandsId}.*`);
     if (this.stopping) {

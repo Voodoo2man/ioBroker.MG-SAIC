@@ -6,6 +6,12 @@ describe('runtime command translations', () => {
 		const commandIds = [
 			'refresh',
 			'commands',
+			'commandGroup_access',
+			'commandGroup_climate',
+			'commandGroup_heating',
+			'commandGroup_charging',
+			'commandGroup_schedules',
+			'commandGroup_vehicle',
 			'currentStatus',
 			'liveStatus',
 			'cachedStatus',
