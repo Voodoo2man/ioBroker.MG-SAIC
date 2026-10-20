@@ -1,5 +1,8 @@
 # ioBroker MG/SAIC
 
+[![NPM version](https://img.shields.io/npm/v/iobroker.mg-saic.svg)](https://www.npmjs.com/package/iobroker.mg-saic)
+[![Downloads](https://img.shields.io/npm/dm/iobroker.mg-saic.svg)](https://www.npmjs.com/package/iobroker.mg-saic)
+
 <img src="MG.png" alt="MG" width="314">
 
 The adapter is intended for connecting MG and SAIC vehicles to ioBroker through the iSmart cloud service. It is not affiliated with or endorsed by MG, SAIC, or iSmart.
