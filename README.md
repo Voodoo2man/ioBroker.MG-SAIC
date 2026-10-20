@@ -2,12 +2,13 @@
 
 <img src="MG.png" alt="MG" width="314">
 
-The adapter is intendet for connecting MG and SAIC vehicles to ioBroker through the iSmart cloud service. It is not affiliated with or endorsed by MG, SAIC, or iSmart.
+The adapter is intended for connecting MG and SAIC vehicles to ioBroker through the iSmart cloud service. It is not affiliated with or endorsed by MG, SAIC, or iSmart.
 
 ## Setup
 
 ### Before you start
 
+- Node.js 22.19.0 or later is required.
 - Use an iSmart account that has access to the vehicle. A separate account shared with the vehicle is recommended to avoid interfering with the mobile app session.
 - Have the account password ready. The adapter stores it as a protected setting.
 - Select the region for the account. Available regions are European Union, China, Australia, Brazil, Israel, Turkey, Thailand, and Rest of World. India is not supported.
