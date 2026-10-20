@@ -541,6 +541,31 @@ describe('SaicApiClient vehicle status', () => {
 		}
 	});
 
+	it('does not event-poll SAIC code 4 after a remote instruction failure', async () => {
+		let callCount = 0;
+		const client = new SaicApiClient(
+			() => {
+				callCount += 1;
+				return Promise.resolve(
+					new Response(
+						'{"code":4,"message":"The remote control instruction failed, please try again later."}',
+						{ headers: { 'event-id': '573135718' } },
+					),
+				);
+			},
+			Date.now,
+			() => Promise.resolve(),
+		);
+
+		try {
+			await client.getVehicleStatus(options, 'test-access-token', 'LSJWH4095RN166487');
+			expect.fail('Expected SAIC remote instruction failure');
+		} catch (error) {
+			expect((error as Error).message).to.equal('The remote control instruction failed, please try again later.');
+		}
+		expect(callCount).to.equal(1);
+	});
+
 	it('does not treat SAIC authorization codes as pending event responses', async () => {
 		for (const code of [401, 403]) {
 			let callCount = 0;

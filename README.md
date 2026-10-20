@@ -35,6 +35,7 @@ The adapter is not published yet. Install it through the ioBroker Admin adapter 
 - (Voodoo2man) Initial Version
 - (Voodoo2man) Corrected live-status signing and value mappings, bounded retries, and handled shutdown cancellation and stale responses.
 - (Voodoo2man) Exposed additional numeric SAIC status and GPS values, including battery state of charge.
+- (Voodoo2man) Stopped repeated live-status polling after SAIC reported a remote instruction failure.
 
 
 ## License

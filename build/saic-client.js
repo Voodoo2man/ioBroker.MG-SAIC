@@ -489,6 +489,9 @@ class SaicApiClient {
       if (returnCode === 401 || returnCode === 403) {
         throw new SaicHttpError(`SAIC rejected vehicle status with code ${returnCode}`, returnCode);
       }
+      if (returnCode === 4) {
+        throw new Error(envelope.message || "SAIC could not execute the remote vehicle request");
+      }
       if (useEventId && ![2, 3, 7].includes(returnCode) && (Boolean(nextEventId) && envelope.data === void 0 || returnCode !== 0 && eventId !== "0")) {
         if (this.monotonicNow() >= deadline) {
           throw new RetryableVehicleStatusError(
