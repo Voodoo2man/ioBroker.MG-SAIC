@@ -1,6 +1,16 @@
 import { expect } from 'chai';
 import { createHash } from 'node:crypto';
-import { isVehicleStatusNotOlder, isVehicleStatusTimestampValid, SaicApiClient } from './saic-client';
+import {
+	isVehicleStatusNotOlder,
+	isVehicleStatusTimestampValid,
+	SaicApiClient,
+	SaicRemoteInstructionError,
+	climateTemperatureToIndex,
+	getClimateTemperatureRange,
+	targetSocPercentToCode,
+	type SaicVehicleSetting,
+	type SaicVehicleCommand,
+} from './saic-client';
 import { createSaicRequestSignature, encryptSaicRequestBody, sha1PasswordDigest } from './saic-crypto';
 
 describe('SaicApiClient login', () => {
@@ -95,6 +105,21 @@ describe('SaicApiClient login', () => {
 		} catch (error) {
 			expect((error as Error).message).to.equal('SAIC login failed with HTTP status 401');
 		}
+	});
+});
+
+describe('Home Assistant control value mappings', () => {
+	it('converts Celsius setpoints using the vehicle-series ranges and index offsets', () => {
+		expect(getClimateTemperatureRange('EH32 S')).to.deep.equal({ min: 17, max: 31 });
+		expect(getClimateTemperatureRange('MZS3E')).to.deep.equal({ min: 16, max: 31 });
+		expect(getClimateTemperatureRange('EP2')).to.deep.equal({ min: 16, max: 28 });
+		expect(climateTemperatureToIndex(17, 'EH32 S')).to.equal(3);
+		expect(climateTemperatureToIndex(22, 'EH32 S')).to.equal(8);
+		expect(climateTemperatureToIndex(16, 'EP2')).to.equal(2);
+	});
+
+	it('converts supported target SoC percentages to SAIC codes', () => {
+		expect([40, 50, 60, 70, 80, 90, 100].map(targetSocPercentToCode)).to.deep.equal([1, 2, 3, 4, 5, 6, 7]);
 	});
 });
 
@@ -235,7 +260,10 @@ describe('SaicApiClient vehicle status', () => {
 								lockStatus: 'locked',
 							},
 							gpsPosition: {
-								wayPoint: { speed: 42, latitude: 51.5, longitude: -0.12, unavailable: -128 },
+								wayPoint: {
+									speed: 42,
+									position: { altitude: 18, latitude: 51.5, longitude: -0.12, unavailable: -128 },
+								},
 							},
 						},
 					}),
@@ -255,6 +283,7 @@ describe('SaicApiClient vehicle status', () => {
 				wheelTyreMonitorStatus: 2,
 				newSaicStatusValue: 17,
 				unexpectedValue: 5,
+				gpsAltitude: 18,
 				gpsLatitude: 51.5,
 				gpsLongitude: -0.12,
 				speed: 42,
@@ -270,6 +299,320 @@ describe('SaicApiClient vehicle status', () => {
 		expect(new Headers(requestInit?.headers).get('user-agent')).to.equal(
 			'Europe/2.1.0 (iPad; iOS 18.5; Scale/2.00)',
 		);
+	});
+
+	it('sends the verified lock and climate command payloads', async () => {
+		const vin = 'LSJWH4095RN166487';
+		const expectedParams: Record<string, Array<{ paramId: number; paramValue: string }> | null> = {
+			lock: null,
+			unlock: [
+				{ paramId: 4, paramValue: 'AA==' },
+				{ paramId: 5, paramValue: 'AA==' },
+				{ paramId: 6, paramValue: 'AA==' },
+				{ paramId: 7, paramValue: 'Aw==' },
+				{ paramId: 255, paramValue: 'AAAAAA==' },
+			],
+			climateStart: [
+				{ paramId: 19, paramValue: 'Ag==' },
+				{ paramId: 20, paramValue: 'CA==' },
+				{ paramId: 255, paramValue: 'AAAAAA==' },
+			],
+			climateStop: [
+				{ paramId: 19, paramValue: 'AA==' },
+				{ paramId: 22, paramValue: 'AA==' },
+				{ paramId: 255, paramValue: 'AAAAAA==' },
+			],
+		};
+		for (const [command, rvcParams] of Object.entries(expectedParams) as Array<
+			[SaicVehicleCommand, Array<{ paramId: number; paramValue: string }> | null]
+		>) {
+			let requestUrl: URL | undefined;
+			let requestInit: RequestInit | undefined;
+			const client = new SaicApiClient(
+				(input, init) => {
+					requestUrl = input instanceof URL ? input : new URL(input instanceof Request ? input.url : input);
+					requestInit = init;
+					return Promise.resolve(new Response('{"code":0,"message":"success","data":{}}'));
+				},
+				() => 1_700_000_000_123,
+			);
+
+			await client.sendVehicleCommand(options, 'test-access-token', vin, command);
+
+			expect(requestUrl?.pathname).to.equal('/api.app/v1/vehicle/control');
+			expect(requestInit?.method).to.equal('POST');
+			const payload = JSON.stringify({
+				rvcParams,
+				rvcReqType: command === 'lock' ? '1' : command === 'unlock' ? '2' : '6',
+				vin: createHash('sha256').update(vin, 'utf8').digest('hex'),
+			});
+			const headers = new Headers(requestInit?.headers);
+			const encryptedBody = encryptSaicRequestBody(
+				'/vehicle/control',
+				options.tenantId,
+				'test-access-token',
+				'1700000000123',
+				'application/json',
+				payload,
+			);
+			expect(requestInit?.body).to.equal(encryptedBody);
+			expect(headers.get('event-id')).to.equal('0');
+			expect(headers.get('APP-VERIFICATION-STRING')).to.equal(
+				createSaicRequestSignature(
+					'/vehicle/control',
+					options.tenantId,
+					'test-access-token',
+					'1700000000123',
+					'application/json',
+					encryptedBody,
+				),
+			);
+		}
+	});
+
+	it('polls command event ids through SAIC pending codes until command data arrives', async () => {
+		const requestEventIds: string[] = [];
+		const waitDurations: number[] = [];
+		let callCount = 0;
+		const client = new SaicApiClient(
+			(_input, init) => {
+				requestEventIds.push(new Headers(init?.headers).get('event-id') ?? 'missing');
+				callCount += 1;
+				if (callCount === 1) {
+					return Promise.resolve(
+						new Response('{"code":4,"message":"pending"}', {
+							headers: { 'event-id': 'control-event-1' },
+						}),
+					);
+				}
+				return Promise.resolve(new Response('{"code":0,"message":"success","data":{"rvcReqSts":"AQ=="}}'));
+			},
+			() => 1_700_000_000_123,
+			milliseconds => {
+				waitDurations.push(milliseconds);
+				return Promise.resolve();
+			},
+		);
+
+		await client.sendVehicleCommand(options, 'test-access-token', 'LSJWH4095RN166487', 'lock');
+
+		expect(callCount).to.equal(2);
+		expect(requestEventIds).to.deep.equal(['0', 'control-event-1']);
+		expect(waitDurations).to.deep.equal([1_000]);
+	});
+
+	it('maps HA-style vehicle controls to the documented SAIC endpoints and payloads', async () => {
+		const vin = 'LSJWH4095RN166487';
+		const hashedVin = createHash('sha256').update(vin, 'utf8').digest('hex');
+		const cases: Array<{ command: SaicVehicleCommand; path: string; body: Record<string, unknown> }> = [
+			{
+				command: 'openBoot',
+				path: '/vehicle/control',
+				body: {
+					rvcReqType: '2',
+					rvcParams: [
+						{ paramId: 4, paramValue: 'AA==' },
+						{ paramId: 5, paramValue: 'AA==' },
+						{ paramId: 6, paramValue: 'AA==' },
+						{ paramId: 7, paramValue: 'Ag==' },
+						{ paramId: 255, paramValue: 'AAAAAA==' },
+					],
+					vin: hashedVin,
+				},
+			},
+			{
+				command: 'driverSeatHeatHigh',
+				path: '/vehicle/control',
+				body: {
+					rvcReqType: '5',
+					rvcParams: [
+						{ paramId: 17, paramValue: 'Aw==' },
+						{ paramId: 18, paramValue: 'AA==' },
+						{ paramId: 255, paramValue: 'AAAAAA==' },
+					],
+					vin: hashedVin,
+				},
+			},
+			{
+				command: 'rearWindowHeatStart',
+				path: '/vehicle/control',
+				body: {
+					rvcReqType: '32',
+					rvcParams: [
+						{ paramId: 23, paramValue: 'AQ==' },
+						{ paramId: 255, paramValue: 'AAAAAA==' },
+					],
+					vin: hashedVin,
+				},
+			},
+			{
+				command: 'batteryHeatStart',
+				path: '/vehicle/charging/ptcHeat',
+				body: { ptcHeatReq: 1, vin: hashedVin },
+			},
+			{
+				command: 'chargingStart',
+				path: '/vehicle/charging/control',
+				body: { chrgCtrlReq: 1, tboxV2XReq: 0, tboxEleccLckCtrlReq: 0, vin: hashedVin },
+			},
+			{
+				command: 'chargingPortUnlock',
+				path: '/vehicle/charging/control',
+				body: { chrgCtrlReq: 0, tboxV2XReq: 0, tboxEleccLckCtrlReq: 2, vin: hashedVin },
+			},
+		];
+
+		for (const { command, path, body } of cases) {
+			let requestUrl: URL | undefined;
+			let requestInit: RequestInit | undefined;
+			const client = new SaicApiClient(
+				(input, init) => {
+					requestUrl = input instanceof URL ? input : new URL(input instanceof Request ? input.url : input);
+					requestInit = init;
+					return Promise.resolve(new Response('{"code":0,"data":{}}'));
+				},
+				() => 1_700_000_000_123,
+			);
+
+			await client.sendVehicleCommand(options, 'test-access-token', vin, command);
+
+			expect(requestUrl?.pathname).to.equal(`/api.app/v1${path}`);
+			const serializedBody =
+				path === '/vehicle/control'
+					? JSON.stringify({ rvcParams: body.rvcParams, rvcReqType: body.rvcReqType, vin: body.vin })
+					: JSON.stringify(body);
+			expect(requestInit?.body).to.equal(
+				encryptSaicRequestBody(
+					path,
+					options.tenantId,
+					'test-access-token',
+					'1700000000123',
+					'application/json',
+					serializedBody,
+				),
+			);
+		}
+	});
+
+	it('classifies SAIC code 4 as a remote instruction response', async () => {
+		const client = new SaicApiClient(
+			() => Promise.resolve(new Response('{"code":4,"message":"Remote instruction failed"}')),
+			Date.now,
+			() => Promise.resolve(),
+		);
+
+		try {
+			await client.getVehicleStatus(options, 'test-access-token', 'LSJWH4095RN166487');
+			expect.fail('Expected the remote instruction response to be rejected');
+		} catch (error) {
+			expect(error).to.be.instanceOf(SaicRemoteInstructionError);
+			expect((error as Error).message).to.equal('Remote instruction failed');
+		}
+	});
+
+	it('maps writable settings to documented SAIC payloads', async () => {
+		const vin = 'LSJWH4095RN166487';
+		const hashedVin = createHash('sha256').update(vin, 'utf8').digest('hex');
+		const expectedBatteryStart = new Date(1_700_000_000_000);
+		expectedBatteryStart.setHours(23, 5, 0, 0);
+		if (expectedBatteryStart.getTime() < 1_700_000_000_000) {
+			expectedBatteryStart.setDate(expectedBatteryStart.getDate() + 1);
+		}
+		const cases: Array<{
+			setting: SaicVehicleSetting;
+			path: string;
+			body: Record<string, unknown>;
+			polling: boolean;
+		}> = [
+			{
+				setting: { type: 'climateTemperature', value: 10 },
+				path: '/vehicle/control',
+				body: {
+					rvcParams: [
+						{ paramId: 19, paramValue: 'Ag==' },
+						{ paramId: 20, paramValue: 'Cg==' },
+						{ paramId: 255, paramValue: 'AAAAAA==' },
+					],
+					rvcReqType: '6',
+					vin: hashedVin,
+				},
+				polling: true,
+			},
+			{
+				setting: { type: 'chargingSettings', targetSoc: 5, currentLimit: 4 },
+				path: '/vehicle/charging/setting',
+				body: { onBdChrgTrgtSOCReq: 5, altngChrgCrntReq: 4, tboxV2XSpSOCReq: 0, vin: hashedVin },
+				polling: true,
+			},
+			{
+				setting: { type: 'chargingSchedule', start: '22:30', end: '06:15', mode: 1 },
+				path: '/vehicle/charging/reservation',
+				body: {
+					rsvanStHour: 22,
+					rsvanStMintue: 30,
+					rsvanSpHour: 6,
+					rsvanSpMintue: 15,
+					tboxAdpPubChrgSttnReq: 1,
+					tboxReserCtrlReq: 1,
+					vin: hashedVin,
+				},
+				polling: true,
+			},
+			{
+				setting: { type: 'batteryHeatingSchedule', enabled: true, start: '23:05' },
+				path: '/charging/batteryHeating',
+				body: { startTime: expectedBatteryStart.getTime(), status: 1, vin: hashedVin },
+				polling: false,
+			},
+		];
+
+		for (const { setting, path, body, polling } of cases) {
+			let requestUrl: URL | undefined;
+			let requestInit: RequestInit | undefined;
+			const client = new SaicApiClient(
+				(input, init) => {
+					requestUrl = input instanceof URL ? input : new URL(input instanceof Request ? input.url : input);
+					requestInit = init;
+					return Promise.resolve(new Response(polling ? '{"code":0,"data":{}}' : ''));
+				},
+				() => 1_700_000_000_000,
+			);
+			await client.sendVehicleSetting(options, 'test-access-token', vin, setting);
+			expect(requestUrl?.pathname).to.equal(`/api.app/v1${path}`);
+			expect(requestInit?.body, `${setting.type}: ${JSON.stringify(body)}`).to.equal(
+				encryptSaicRequestBody(
+					path,
+					options.tenantId,
+					'test-access-token',
+					'1700000000000',
+					'application/json',
+					JSON.stringify(body),
+				),
+			);
+			expect(new Headers(requestInit?.headers).has('event-id')).to.equal(polling);
+		}
+	});
+
+	it('rejects invalid settings before making a request', async () => {
+		let requestMade = false;
+		const client = new SaicApiClient(() => {
+			requestMade = true;
+			return Promise.resolve(new Response('{"code":0,"data":{}}'));
+		});
+		for (const setting of [
+			{ type: 'climateTemperature', value: -1 },
+			{ type: 'chargingSettings', targetSoc: 0, currentLimit: 4 },
+			{ type: 'chargingSchedule', start: '25:00', end: '06:00', mode: 1 },
+			{ type: 'batteryHeatingSchedule', enabled: true, start: 'noon' },
+		] as SaicVehicleSetting[]) {
+			try {
+				await client.sendVehicleSetting(options, 'test-access-token', 'LSJWH4095RN166487', setting);
+				expect.fail('Expected invalid setting to be rejected');
+			} catch (error) {
+				expect((error as Error).message).not.to.equal('Expected invalid setting to be rejected');
+			}
+		}
+		expect(requestMade).to.equal(false);
 	});
 
 	it('signs each event poll with its own timestamp and event id', async () => {

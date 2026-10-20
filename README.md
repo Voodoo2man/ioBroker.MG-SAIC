@@ -21,6 +21,8 @@ The Admin form accepts an email address or phone number, an optional phone count
 - Each discovered vehicle has a `vehicles.<VIN>` device with its VIN and available name, brand, model, series, year, color, and account flags.
 - The adapter requests live status for each vehicle at startup and at the configured interval. If the live request fails, it also requests SAIC's last cached status as a fallback. Values are grouped under `vehicles.<VIN>.status.<group>` and `vehicles.<VIN>.cachedStatus.<group>` channels (for example, `driving`, `climate`, `tires`, and `energy`). Existing flat status states are moved to the grouped paths when refreshed.
 - Configure the automatic status polling interval in seconds in the adapter settings (default: 1800 seconds). Write `true` to `commands.refresh` to request an immediate refresh.
+- Each vehicle exposes momentary buttons under `vehicles.<VIN>.commands` for door locking/unlocking, boot release, climate and front/rear defrost, driver/passenger seat heating levels, battery heating, charging start/stop, charging-port locking/unlocking, and the horn-and-lights vehicle finder. SAIC command completion is logged; availability and behavior depend on the vehicle and account permissions.
+- Writable settings in the same channel configure the climate target temperature in °C, charging target SOC (40-100% in 10% steps), charging current limit (6 A, 8 A, 16 A, or maximum), scheduled charging times and mode, and battery-heating schedule enablement and start time. Apply each group with its matching `*Apply` button. Climate temperatures are converted to the SAIC index using the vehicle series' supported range. Battery-heating start time uses the next occurrence in the adapter host's local time zone. Heated steering wheel control is not exposed because the HA integration does not define a writable steering-wheel heating command.
 - All finite numeric fields in SAIC's `basicVehicleStatus` and numeric GPS waypoint fields are exposed, including fields added by SAIC that the adapter does not yet have a friendly name for. The `extendedData1` field is exposed as battery state of charge; on some vehicle types its meaning may differ. Known measurements are converted from documented raw API scales where available; `remoteClimateStatus` retains its numeric API codes. Status timestamps older than 24 hours or more than five minutes in the future are rejected; responses without a timestamp remain usable, and an older live response cannot replace a newer one. Data from separate charging endpoints is not currently requested. Persistence and India TAP are not available yet.
 - Home Assistant is not a runtime dependency.
 
@@ -36,6 +38,10 @@ The adapter is not published yet. Install it through the ioBroker Admin adapter 
 - (Voodoo2man) Corrected live-status signing and value mappings, bounded retries, and handled shutdown cancellation and stale responses.
 - (Voodoo2man) Exposed additional numeric SAIC status and GPS values, including battery state of charge.
 - (Voodoo2man) Stopped repeated live-status polling after SAIC reported a remote instruction failure.
+- (Voodoo2man) Parsed nested GPS coordinates and altitude from SAIC waypoint responses.
+- (Voodoo2man) Added per-vehicle controls for access, climate, heating, charging, vehicle finding, and charging schedules.
+- (Voodoo2man) Clarified that SAIC code 4 is a remote service or vehicle response, not an adapter parsing error.
+- (Voodoo2man) Matched climate target temperature and charging target SoC controls to Home Assistant's Celsius and percentage values.
 
 
 ## License

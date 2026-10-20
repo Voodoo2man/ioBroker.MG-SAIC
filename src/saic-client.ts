@@ -54,6 +54,47 @@ export interface SaicVehicle {
 	isSubaccount?: boolean;
 }
 
+/**
+ * Climate setpoint range exposed by the SAIC gateway for a vehicle series.
+ *
+ * @param series SAIC vehicle series identifier.
+ */
+export function getClimateTemperatureRange(series?: string): { min: number; max: number } {
+	if (series?.startsWith('EH32')) {
+		return { min: 17, max: 31 };
+	}
+	if (series?.startsWith('MZS3E')) {
+		return { min: 16, max: 31 };
+	}
+	return { min: 16, max: 28 };
+}
+
+/**
+ * Convert the user-facing Celsius setpoint to the raw SAIC climate index.
+ *
+ * @param temperature Climate setpoint in Celsius.
+ * @param series SAIC vehicle series identifier.
+ */
+export function climateTemperatureToIndex(temperature: number, series?: string): number {
+	const { min, max } = getClimateTemperatureRange(series);
+	if (!Number.isInteger(temperature) || temperature < min || temperature > max) {
+		throw new Error(`Climate temperature must be an integer from ${min} to ${max} C`);
+	}
+	return (series?.startsWith('EH32') ? 3 : 2) + temperature - min;
+}
+
+/**
+ * Convert an HA-style SoC percentage to the SAIC target battery code.
+ *
+ * @param percentage Target state of charge from 40 to 100 percent.
+ */
+export function targetSocPercentToCode(percentage: number): number {
+	if (!Number.isInteger(percentage) || percentage < 40 || percentage > 100 || percentage % 10 !== 0) {
+		throw new Error('Charge target must be 40 to 100 percent in 10 percent steps');
+	}
+	return percentage / 10 - 3;
+}
+
 /** Vehicle status values returned by the SAIC vehicle status endpoint. */
 export interface SaicVehicleStatus {
 	/** Raw status timestamp returned by the service. */
@@ -63,6 +104,73 @@ export interface SaicVehicleStatus {
 	/** Numeric basic vehicle status values, including fields added by SAIC. */
 	basicVehicleStatus: Record<string, number>;
 }
+
+/** Supported remote actions exposed by this adapter. */
+export type SaicVehicleCommand =
+	| 'lock'
+	| 'unlock'
+	| 'openBoot'
+	| 'climateStart'
+	| 'climateStop'
+	| 'frontDefrost'
+	| 'rearWindowHeatStart'
+	| 'rearWindowHeatStop'
+	| 'driverSeatHeatOff'
+	| 'driverSeatHeatLow'
+	| 'driverSeatHeatMedium'
+	| 'driverSeatHeatHigh'
+	| 'passengerSeatHeatOff'
+	| 'passengerSeatHeatLow'
+	| 'passengerSeatHeatMedium'
+	| 'passengerSeatHeatHigh'
+	| 'batteryHeatStart'
+	| 'batteryHeatStop'
+	| 'chargingStart'
+	| 'chargingStop'
+	| 'chargingPortLock'
+	| 'chargingPortUnlock'
+	| 'findMyCar';
+
+interface SaicVehicleCommandRequest {
+	path: string;
+	body: Record<string, unknown>;
+	method?: 'POST';
+	eventPolling?: boolean;
+}
+
+export type SaicVehicleSetting =
+	| {
+			/** Climate fan/temperature control request. */
+			type: 'climateTemperature';
+			/** Raw SAIC climate temperature index. */
+			value: number;
+	  }
+	| {
+			/** On-board charger target SOC and current limit. */
+			type: 'chargingSettings';
+			/** SAIC target-SOC code from 1 through 7. */
+			targetSoc: number;
+			/** SAIC current-limit code from 1 through 4. */
+			currentLimit: number;
+	  }
+	| {
+			/** Scheduled charging time window and mode. */
+			type: 'chargingSchedule';
+			/** Local schedule start in HH:MM format. */
+			start: string;
+			/** Local schedule end in HH:MM format. */
+			end: string;
+			/** SAIC schedule mode code. */
+			mode: number;
+	  }
+	| {
+			/** Daily battery-heating start schedule. */
+			type: 'batteryHeatingSchedule';
+			/** Whether the daily schedule is enabled. */
+			enabled: boolean;
+			/** Local scheduled start in HH:MM format. */
+			start: string;
+	  };
 
 /** HTTP transport type used for injectable API requests. */
 type FetchFunction = typeof fetch;
@@ -84,6 +192,8 @@ interface SaicApiEnvelope {
 
 class RetryableVehicleStatusError extends Error {}
 class SaicBodyReadError extends Error {}
+/** SAIC code 4 indicates that the remote vehicle instruction could not be executed. */
+export class SaicRemoteInstructionError extends Error {}
 /** HTTP status failure returned by SAIC. */
 export class SaicHttpError extends Error {
 	/**
@@ -443,6 +553,321 @@ export class SaicApiClient {
 		return this.requestVehicleStatus(options, accessToken, vin, '/vehicle/status/cache', false, signal);
 	}
 
+	/**
+	 * Execute a verified SAIC vehicle-control action.
+	 *
+	 * @param options Account region and tenant settings.
+	 * @param accessToken Token returned by {@link login}.
+	 * @param vin Vehicle identification number.
+	 * @param command Action to execute.
+	 * @param signal Optional caller cancellation signal.
+	 */
+	public async sendVehicleCommand(
+		options: SaicLoginOptions,
+		accessToken: string,
+		vin: string,
+		command: SaicVehicleCommand,
+		signal?: AbortSignal,
+	): Promise<void> {
+		const commandRequest = this.vehicleCommandRequest(command, vin);
+		await this.sendSignedVehiclePost(options, accessToken, vin, commandRequest, signal);
+	}
+
+	/**
+	 * Apply a supported vehicle setting using the documented SAIC request format.
+	 *
+	 * @param options Account region and tenant settings.
+	 * @param accessToken Token returned by {@link login}.
+	 * @param vin Vehicle identification number.
+	 * @param setting Setting values to apply.
+	 * @param signal Optional caller cancellation signal.
+	 */
+	public async sendVehicleSetting(
+		options: SaicLoginOptions,
+		accessToken: string,
+		vin: string,
+		setting: SaicVehicleSetting,
+		signal?: AbortSignal,
+	): Promise<void> {
+		const request = this.vehicleSettingRequest(setting, vin);
+		await this.sendSignedVehiclePost(options, accessToken, vin, request, signal);
+	}
+
+	private async sendSignedVehiclePost(
+		options: SaicLoginOptions,
+		accessToken: string,
+		vin: string,
+		commandRequest: SaicVehicleCommandRequest,
+		signal?: AbortSignal,
+	): Promise<void> {
+		const body = JSON.stringify(commandRequest.body);
+		const requestPath = commandRequest.path;
+		const eventPolling = commandRequest.eventPolling !== false;
+		const contentType = 'application/json';
+		const baseUrl = options.baseUrl.endsWith('/') ? options.baseUrl : `${options.baseUrl}/`;
+		const requestUrl = new URL(requestPath.replace(/^\/+/, ''), baseUrl);
+		const deadline = this.monotonicNow() + 30_000;
+		let eventId = '0';
+		for (let requestCount = 0; requestCount < (eventPolling ? 11 : 1); requestCount++) {
+			if (signal?.aborted) {
+				throw signal.reason;
+			}
+			if (this.monotonicNow() >= deadline) {
+				throw new Error('SAIC vehicle command timed out while waiting for confirmation');
+			}
+			const timestamp = String(this.now());
+			const encryptedBody = encryptSaicRequestBody(
+				requestPath,
+				options.tenantId,
+				accessToken,
+				timestamp,
+				contentType,
+				body,
+			);
+			const headers: Record<string, string> = {
+				Accept: 'application/json',
+				'Accept-Encoding': 'gzip',
+				'Content-Type': `${contentType};charset=utf-8`,
+				'ORIGINAL-CONTENT-TYPE': contentType,
+				'APP-CONTENT-ENCRYPTED': '1',
+				'APP-LANGUAGE-TYPE': 'en',
+				'APP-SEND-DATE': timestamp,
+				'APP-VERIFICATION-STRING': createSaicRequestSignature(
+					requestPath,
+					options.tenantId,
+					accessToken,
+					timestamp,
+					contentType,
+					encryptedBody,
+				),
+				REGION: options.regionCode,
+				'tenant-id': options.tenantId,
+				'User-Type': 'app',
+				'User-Agent': 'Europe/2.1.0 (iPad; iOS 18.5; Scale/2.00)',
+				'blade-auth': accessToken,
+				...(eventPolling ? { 'event-id': eventId } : {}),
+			};
+			const { response, body: responseText } = await this.fetchResponse(
+				requestUrl,
+				{ method: 'POST', headers, body: encryptedBody },
+				Math.max(1, Math.min(5_000, deadline - this.monotonicNow())),
+				signal,
+			);
+			if (!response.ok) {
+				throw new SaicHttpError(
+					`SAIC vehicle command failed with HTTP status ${response.status}`,
+					response.status,
+				);
+			}
+			if (!eventPolling) {
+				return;
+			}
+			const decodedBody = this.decodeResponseBody(response, responseText, 'vehicle command');
+			let envelope: SaicApiEnvelope;
+			try {
+				envelope = JSON.parse(decodedBody) as SaicApiEnvelope;
+			} catch {
+				throw new Error('SAIC vehicle command returned an invalid response');
+			}
+			const returnCode = Number(envelope.code);
+			const nextEventId = response.headers.get('event-id');
+			if (returnCode === 401 || returnCode === 403) {
+				throw new SaicHttpError(`SAIC rejected vehicle command with code ${returnCode}`, returnCode);
+			}
+			if ([2, 3, 7].includes(returnCode)) {
+				throw new Error(envelope.message || `SAIC rejected vehicle command with code ${returnCode}`);
+			}
+			if (nextEventId && envelope.data === undefined) {
+				eventId = nextEventId;
+			} else if (returnCode !== 0 && eventId !== '0') {
+				eventId = nextEventId ?? eventId;
+			} else if (returnCode !== 0) {
+				throw new Error(envelope.message || `SAIC rejected vehicle command with code ${returnCode}`);
+			} else if (envelope.data !== undefined) {
+				return;
+			} else if (!nextEventId) {
+				throw new Error('SAIC vehicle command response contained neither data nor an event id');
+			}
+			await this.wait(Math.min(1_000, Math.max(0, deadline - this.monotonicNow())), signal);
+		}
+		throw new Error('SAIC vehicle command exceeded its event polling limit');
+	}
+
+	private vehicleSettingRequest(setting: SaicVehicleSetting, vin: string): SaicVehicleCommandRequest {
+		const hashedVin = createHash('sha256').update(vin, 'utf8').digest('hex');
+		if (setting.type === 'climateTemperature') {
+			if (!Number.isInteger(setting.value) || setting.value < 0 || setting.value > 255) {
+				throw new Error('Climate temperature index must be an integer from 0 to 255');
+			}
+			return {
+				path: '/vehicle/control',
+				body: {
+					rvcParams: [
+						{ paramId: 19, paramValue: Buffer.from([2]).toString('base64') },
+						{ paramId: 20, paramValue: Buffer.from([setting.value]).toString('base64') },
+						{ paramId: 255, paramValue: Buffer.from([0, 0, 0, 0]).toString('base64') },
+					],
+					rvcReqType: '6',
+					vin: hashedVin,
+				},
+			};
+		}
+		if (setting.type === 'chargingSettings') {
+			if (!Number.isInteger(setting.targetSoc) || setting.targetSoc < 1 || setting.targetSoc > 7) {
+				throw new Error('Charge target code must be an integer from 1 to 7');
+			}
+			if (!Number.isInteger(setting.currentLimit) || setting.currentLimit < 1 || setting.currentLimit > 4) {
+				throw new Error('Charge current limit code must be an integer from 1 to 4');
+			}
+			return {
+				path: '/vehicle/charging/setting',
+				body: {
+					onBdChrgTrgtSOCReq: setting.targetSoc,
+					altngChrgCrntReq: setting.currentLimit,
+					tboxV2XSpSOCReq: 0,
+					vin: hashedVin,
+				},
+			};
+		}
+		if (setting.type === 'chargingSchedule') {
+			const start = this.parseTime(setting.start);
+			const end = this.parseTime(setting.end);
+			if (![1, 2, 3].includes(setting.mode)) {
+				throw new Error('Charging schedule mode must be 1, 2, or 3');
+			}
+			return {
+				path: '/vehicle/charging/reservation',
+				body: {
+					rsvanStHour: start.hour,
+					rsvanStMintue: start.minute,
+					rsvanSpHour: end.hour,
+					rsvanSpMintue: end.minute,
+					tboxAdpPubChrgSttnReq: 1,
+					tboxReserCtrlReq: setting.mode,
+					vin: hashedVin,
+				},
+			};
+		}
+		const parsedStart = this.parseTime(setting.start);
+		const currentTime = this.now();
+		const now = new Date(currentTime);
+		now.setHours(parsedStart.hour, parsedStart.minute, 0, 0);
+		if (now.getTime() < currentTime) {
+			now.setDate(now.getDate() + 1);
+		}
+		return {
+			path: '/charging/batteryHeating',
+			eventPolling: false,
+			body: {
+				startTime: setting.enabled ? now.getTime() : 0,
+				status: setting.enabled ? 1 : 0,
+				vin: hashedVin,
+			},
+		};
+	}
+
+	private parseTime(value: string): { hour: number; minute: number } {
+		const match = /^(?:([01]?[0-9]|2[0-3]):([0-5][0-9]))$/.exec(value);
+		if (!match) {
+			throw new Error(`Invalid time value: ${value}`);
+		}
+		return { hour: Number(match[1]), minute: Number(match[2]) };
+	}
+
+	private vehicleCommandRequest(command: SaicVehicleCommand, vin: string): SaicVehicleCommandRequest {
+		const hashedVin = createHash('sha256').update(vin, 'utf8').digest('hex');
+		if (command === 'batteryHeatStart' || command === 'batteryHeatStop') {
+			return {
+				path: '/vehicle/charging/ptcHeat',
+				body: { ptcHeatReq: command === 'batteryHeatStart' ? 1 : 2, vin: hashedVin },
+			};
+		}
+		if (command === 'chargingStart' || command === 'chargingStop') {
+			return {
+				path: '/vehicle/charging/control',
+				body: {
+					chrgCtrlReq: command === 'chargingStart' ? 1 : 2,
+					tboxV2XReq: 0,
+					tboxEleccLckCtrlReq: 0,
+					vin: hashedVin,
+				},
+			};
+		}
+		if (command === 'chargingPortLock' || command === 'chargingPortUnlock') {
+			return {
+				path: '/vehicle/charging/control',
+				body: {
+					chrgCtrlReq: 0,
+					tboxV2XReq: 0,
+					tboxEleccLckCtrlReq: command === 'chargingPortUnlock' ? 2 : 1,
+					vin: hashedVin,
+				},
+			};
+		}
+		const rvcReqType =
+			command === 'lock'
+				? '1'
+				: command === 'unlock' || command === 'openBoot'
+					? '2'
+					: command.startsWith('driverSeatHeat') || command.startsWith('passengerSeatHeat')
+						? '5'
+						: command === 'rearWindowHeatStart' || command === 'rearWindowHeatStop'
+							? '32'
+							: command === 'findMyCar'
+								? '0'
+								: '6';
+		return {
+			path: '/vehicle/control',
+			body: { rvcParams: this.vehicleCommandParams(command), rvcReqType, vin: hashedVin },
+		};
+	}
+
+	private vehicleCommandParams(command: SaicVehicleCommand): Array<{ paramId: number; paramValue: string }> | null {
+		const param = (paramId: number, value: number | number[]): { paramId: number; paramValue: string } => ({
+			paramId,
+			paramValue: Buffer.from(Array.isArray(value) ? value : [value]).toString('base64'),
+		});
+		if (command === 'lock') {
+			return null;
+		}
+		if (command === 'unlock' || command === 'openBoot') {
+			return [
+				param(4, 0),
+				param(5, 0),
+				param(6, 0),
+				param(7, command === 'openBoot' ? 2 : 3),
+				param(255, [0, 0, 0, 0]),
+			];
+		}
+		if (command === 'climateStart') {
+			return [param(19, 2), param(20, 8), param(255, [0, 0, 0, 0])];
+		}
+		if (command === 'climateStop') {
+			return [param(19, 0), param(22, 0), param(255, [0, 0, 0, 0])];
+		}
+		if (command === 'frontDefrost') {
+			return [param(19, 5), param(20, 8), param(22, 1), param(255, [0, 0, 0, 0])];
+		}
+		if (command === 'rearWindowHeatStart' || command === 'rearWindowHeatStop') {
+			return [param(23, command === 'rearWindowHeatStart' ? 1 : 0), param(255, [0, 0, 0, 0])];
+		}
+		if (command.startsWith('driverSeatHeat') || command.startsWith('passengerSeatHeat')) {
+			const driver = command.startsWith('driver');
+			const level = command.endsWith('Low')
+				? 1
+				: command.endsWith('Medium')
+					? 2
+					: command.endsWith('High')
+						? 3
+						: 0;
+			return [param(17, driver ? level : 0), param(18, driver ? 0 : level), param(255, [0, 0, 0, 0])];
+		}
+		if (command === 'findMyCar') {
+			return [param(1, 1), param(2, 1), param(3, 1), param(255, [0, 0, 0, 0])];
+		}
+		return [];
+	}
+
 	private async fetchResponse(
 		url: URL,
 		init: RequestInit,
@@ -628,7 +1053,9 @@ export class SaicApiClient {
 				throw new SaicHttpError(`SAIC rejected vehicle status with code ${returnCode}`, returnCode);
 			}
 			if (returnCode === 4) {
-				throw new Error(envelope.message || 'SAIC could not execute the remote vehicle request');
+				throw new SaicRemoteInstructionError(
+					envelope.message || 'SAIC could not execute the remote vehicle request',
+				);
 			}
 			if (
 				useEventId &&
@@ -700,7 +1127,24 @@ export class SaicApiClient {
 		if (gpsPosition && typeof gpsPosition === 'object' && !Array.isArray(gpsPosition)) {
 			const wayPoint = (gpsPosition as Record<string, unknown>).wayPoint;
 			if (wayPoint && typeof wayPoint === 'object' && !Array.isArray(wayPoint)) {
-				for (const [field, value] of Object.entries(wayPoint as Record<string, unknown>)) {
+				const wayPointRecord = wayPoint as Record<string, unknown>;
+				for (const [field, value] of Object.entries(wayPointRecord)) {
+					if (field === 'position' && value && typeof value === 'object' && !Array.isArray(value)) {
+						for (const [positionField, positionValue] of Object.entries(value as Record<string, unknown>)) {
+							if (
+								typeof positionValue === 'number' &&
+								Number.isFinite(positionValue) &&
+								positionValue !== -128
+							) {
+								const statusField = `gps${positionField[0].toUpperCase()}${positionField.slice(1)}`;
+								basicVehicleStatus[statusField] = positionValue;
+								acceptedFields.push(statusField);
+							} else {
+								ignoredFields.push(`gpsPosition.wayPoint.position.${positionField}`);
+							}
+						}
+						continue;
+					}
 					if (typeof value === 'number' && Number.isFinite(value) && value !== -128) {
 						const statusField =
 							field === 'speed' ? 'speed' : `gps${field[0].toUpperCase()}${field.slice(1)}`;

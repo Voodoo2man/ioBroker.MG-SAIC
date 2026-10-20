@@ -28,6 +28,7 @@ describe('getVehicleStatusMetadata', () => {
 	it('assigns units to known measurements', () => {
 		expect(getVehicleStatusMetadata('batteryVoltage')).to.include({ type: 'number', role: 'value', unit: 'V' });
 		expect(getVehicleStatusMetadata('extendedData1')).to.include({ type: 'number', role: 'value', unit: '%' });
+		expect(getVehicleStatusMetadata('gpsAltitude')).to.include({ type: 'number', role: 'value', unit: 'm' });
 		expect(getVehicleStatusMetadata('gpsLatitude')).to.include({ type: 'number', role: 'value', unit: '°' });
 		expect(getVehicleStatusMetadata('fuelLevelPrc').unit).to.equal('%');
 		expect(getVehicleStatusMetadata('interiorTemperature').unit).to.equal('°C');

@@ -27,6 +27,37 @@ var import_saic_client = require("./saic-client");
 var import_regions = require("./regions");
 var import_refresh_command = require("./refresh-command");
 var import_status_metadata = require("./status-metadata");
+const vehicleCommands = [
+  { id: "lock", name: "Lock doors" },
+  { id: "unlock", name: "Unlock doors" },
+  { id: "openBoot", name: "Open boot" },
+  { id: "climateStart", name: "Start climate control" },
+  { id: "climateStop", name: "Stop climate control" },
+  { id: "frontDefrost", name: "Start front defrost" },
+  { id: "rearWindowHeatStart", name: "Start rear window heating" },
+  { id: "rearWindowHeatStop", name: "Stop rear window heating" },
+  { id: "driverSeatHeatOff", name: "Driver seat heating off" },
+  { id: "driverSeatHeatLow", name: "Driver seat heating low" },
+  { id: "driverSeatHeatMedium", name: "Driver seat heating medium" },
+  { id: "driverSeatHeatHigh", name: "Driver seat heating high" },
+  { id: "passengerSeatHeatOff", name: "Passenger seat heating off" },
+  { id: "passengerSeatHeatLow", name: "Passenger seat heating low" },
+  { id: "passengerSeatHeatMedium", name: "Passenger seat heating medium" },
+  { id: "passengerSeatHeatHigh", name: "Passenger seat heating high" },
+  { id: "batteryHeatStart", name: "Start battery heating" },
+  { id: "batteryHeatStop", name: "Stop battery heating" },
+  { id: "chargingStart", name: "Start charging" },
+  { id: "chargingStop", name: "Stop charging" },
+  { id: "chargingPortLock", name: "Lock charging port" },
+  { id: "chargingPortUnlock", name: "Unlock charging port" },
+  { id: "findMyCar", name: "Trigger vehicle alarm" }
+];
+const settingActions = [
+  { id: "climateTemperatureApply", name: "Apply climate temperature" },
+  { id: "chargingSettingsApply", name: "Apply charging settings" },
+  { id: "chargingScheduleApply", name: "Apply charging schedule" },
+  { id: "batteryHeatingScheduleApply", name: "Apply battery heating schedule" }
+];
 class MgSaic extends utils.Adapter {
   constructor(options = {}) {
     super({
@@ -49,6 +80,7 @@ class MgSaic extends utils.Adapter {
   accessTokenExpiresAt = 0;
   vehicles = [];
   lastStatusTimes = /* @__PURE__ */ new Map();
+  vehicleCommandsInProgress = /* @__PURE__ */ new Set();
   async onReady() {
     var _a, _b, _c, _d, _e;
     if (this.stopping) {
@@ -226,8 +258,11 @@ class MgSaic extends utils.Adapter {
               }
             } else {
               const details = error instanceof Error ? error.message : "Unknown error";
-              statusErrors.push(`Vehicle status request failed for ${vehicle.vin}: ${details}`);
-              this.log.warn(`Could not retrieve current status for vehicle ${vehicle.vin}: ${details}`);
+              const diagnostic = error instanceof import_saic_client.SaicRemoteInstructionError ? `SAIC/MG returned remote instruction code 4 for ${vehicle.vin}; this is a response from the MG/SAIC service or vehicle, not an adapter parsing/processing error. SAIC message: ${details}` : details;
+              statusErrors.push(`Vehicle status request failed for ${vehicle.vin}: ${diagnostic}`);
+              this.log.warn(
+                `Could not retrieve current status for vehicle ${vehicle.vin}: ${diagnostic}`
+              );
               let cachedStatus;
               try {
                 this.log.debug(`Refreshing cached status as fallback for ${vehicle.vin}`);
@@ -301,14 +336,173 @@ class MgSaic extends utils.Adapter {
     }
   }
   onStateChange(id, state) {
-    if (!(0, import_refresh_command.isRefreshCommand)(id, this.namespace, state) || this.stopping) {
+    if (this.stopping) {
       return;
     }
-    void this.setStateAsync("commands.refresh", { val: false, ack: true }).catch((error) => {
-      const details = error instanceof Error ? error.message : "Unknown state error";
-      this.log.error(`Could not acknowledge refresh command: ${details}`);
-    });
-    this.triggerRefresh();
+    if ((0, import_refresh_command.isRefreshCommand)(id, this.namespace, state)) {
+      void this.setStateAsync("commands.refresh", { val: false, ack: true }).catch((error) => {
+        const details = error instanceof Error ? error.message : "Unknown state error";
+        this.log.error(`Could not acknowledge refresh command: ${details}`);
+      });
+      this.triggerRefresh();
+      return;
+    }
+    if (!state || state.ack) {
+      return;
+    }
+    const settingAction = settingActions.find(({ id: actionId }) => id.endsWith(`.commands.${actionId}`));
+    const settingVehicle = this.vehicles.find(
+      ({ vin }) => id === `${this.namespace}.vehicles.${vin}.commands.${settingAction == null ? void 0 : settingAction.id}`
+    );
+    if (settingAction && settingVehicle) {
+      void this.executeVehicleSetting(settingVehicle.vin, settingAction.id);
+      return;
+    }
+    const settingInputVehicle = this.vehicles.find(
+      ({ vin }) => id.startsWith(`${this.namespace}.vehicles.${vin}.commands.`)
+    );
+    const settingInputId = settingInputVehicle ? id.slice(`${this.namespace}.vehicles.${settingInputVehicle.vin}.commands.`.length) : "";
+    if (settingInputVehicle && [
+      "climateTemperature",
+      "chargeTargetSoc",
+      "chargingCurrentLimit",
+      "chargingScheduleStart",
+      "chargingScheduleEnd",
+      "chargingScheduleMode",
+      "batteryHeatingScheduleEnabled",
+      "batteryHeatingScheduleStart"
+    ].includes(settingInputId)) {
+      void this.setStateAsync(`vehicles.${settingInputVehicle.vin}.commands.${settingInputId}`, {
+        val: state.val,
+        ack: true
+      });
+      return;
+    }
+    if (state.val !== true) {
+      return;
+    }
+    const commandEntry = vehicleCommands.find(({ id: commandId }) => id.endsWith(`.commands.${commandId}`));
+    const vehicle = this.vehicles.find(
+      ({ vin }) => id === `${this.namespace}.vehicles.${vin}.commands.${commandEntry == null ? void 0 : commandEntry.id}`
+    );
+    if (!commandEntry || !vehicle) {
+      return;
+    }
+    void this.executeVehicleCommand(vehicle.vin, commandEntry.id);
+  }
+  async executeVehicleSetting(vin, action) {
+    const stateId = `vehicles.${vin}.commands.${action}`;
+    if (this.vehicleCommandsInProgress.has(vin)) {
+      await this.setStateAsync(stateId, { val: false, ack: true });
+      this.log.warn(`Ignored ${action} for ${vin}: another vehicle command is still running`);
+      return;
+    }
+    this.vehicleCommandsInProgress.add(vin);
+    try {
+      await this.setStateAsync(stateId, { val: false, ack: true });
+      if (!this.client || !this.loginOptions) {
+        throw new Error("SAIC client is not initialized");
+      }
+      const setting = await this.readVehicleSetting(vin, action);
+      if (!this.accessToken || this.accessTokenExpiresAt <= Date.now() + 3e4) {
+        await this.authenticate();
+      }
+      await this.client.sendVehicleSetting(
+        this.loginOptions,
+        this.accessToken,
+        vin,
+        setting,
+        this.abortController.signal
+      );
+      this.log.info(`SAIC ${action} completed for ${vin}`);
+    } catch (error) {
+      if (!this.stopping) {
+        const details = error instanceof Error ? error.message : "Unknown settings error";
+        this.log.warn(`SAIC ${action} failed for ${vin}: ${details}`);
+      }
+    } finally {
+      this.vehicleCommandsInProgress.delete(vin);
+    }
+  }
+  async readVehicleSetting(vin, action) {
+    const readNumber = async (id) => {
+      const state = await this.getStateAsync(`vehicles.${vin}.commands.${id}`);
+      if (!state || typeof state.val !== "number" || !Number.isFinite(state.val)) {
+        throw new Error(`Setting ${id} must contain a finite number`);
+      }
+      return state.val;
+    };
+    const readString = async (id) => {
+      const state = await this.getStateAsync(`vehicles.${vin}.commands.${id}`);
+      if (!state || typeof state.val !== "string") {
+        throw new Error(`Setting ${id} must contain a time in HH:MM format`);
+      }
+      return state.val;
+    };
+    if (action === "climateTemperatureApply") {
+      const vehicle = this.vehicles.find((item) => item.vin === vin);
+      return {
+        type: "climateTemperature",
+        value: (0, import_saic_client.climateTemperatureToIndex)(await readNumber("climateTemperature"), vehicle == null ? void 0 : vehicle.series)
+      };
+    }
+    if (action === "chargingSettingsApply") {
+      return {
+        type: "chargingSettings",
+        targetSoc: (0, import_saic_client.targetSocPercentToCode)(await readNumber("chargeTargetSoc")),
+        currentLimit: await readNumber("chargingCurrentLimit")
+      };
+    }
+    if (action === "chargingScheduleApply") {
+      return {
+        type: "chargingSchedule",
+        start: await readString("chargingScheduleStart"),
+        end: await readString("chargingScheduleEnd"),
+        mode: await readNumber("chargingScheduleMode")
+      };
+    }
+    const enabled = await this.getStateAsync(`vehicles.${vin}.commands.batteryHeatingScheduleEnabled`);
+    if (!enabled || typeof enabled.val !== "boolean") {
+      throw new Error("Battery heating schedule enabled must be boolean");
+    }
+    return {
+      type: "batteryHeatingSchedule",
+      enabled: enabled.val,
+      start: await readString("batteryHeatingScheduleStart")
+    };
+  }
+  async executeVehicleCommand(vin, command) {
+    const stateId = `vehicles.${vin}.commands.${command}`;
+    if (this.vehicleCommandsInProgress.has(vin)) {
+      await this.setStateAsync(stateId, { val: false, ack: true });
+      this.log.warn(`Ignored ${command} command for ${vin}: another vehicle command is still running`);
+      return;
+    }
+    this.vehicleCommandsInProgress.add(vin);
+    try {
+      await this.setStateAsync(stateId, { val: false, ack: true });
+      if (!this.client || !this.loginOptions) {
+        throw new Error("SAIC client is not initialized");
+      }
+      if (!this.accessToken || this.accessTokenExpiresAt <= Date.now() + 3e4) {
+        await this.authenticate();
+      }
+      await this.client.sendVehicleCommand(
+        this.loginOptions,
+        this.accessToken,
+        vin,
+        command,
+        this.abortController.signal
+      );
+      this.log.info(`SAIC ${command} command completed for ${vin}`);
+    } catch (error) {
+      if (!this.stopping) {
+        const details = error instanceof Error ? error.message : "Unknown command error";
+        this.log.warn(`SAIC ${command} command failed for ${vin}: ${details}`);
+      }
+    } finally {
+      this.vehicleCommandsInProgress.delete(vin);
+    }
   }
   async createVehicleStatusObjects(vin, status, channel = "status", channelName = "Current status") {
     if (this.stopping) {
@@ -399,6 +593,156 @@ class MgSaic extends utils.Adapter {
       common: { name: vehicle.name || vehicle.modelName || vehicle.vin },
       native: {}
     });
+    if (this.stopping) {
+      return;
+    }
+    const commandsId = `${deviceId}.commands`;
+    await this.setObjectNotExistsAsync(commandsId, {
+      type: "channel",
+      common: { name: "Remote commands" },
+      native: {}
+    });
+    for (const command of vehicleCommands) {
+      await this.setObjectNotExistsAsync(`${commandsId}.${command.id}`, {
+        type: "state",
+        common: {
+          name: command.name,
+          type: "boolean",
+          role: "button",
+          read: false,
+          write: true
+        },
+        native: {}
+      });
+      await this.setStateAsync(`${commandsId}.${command.id}`, { val: false, ack: true });
+    }
+    const settingStates = [
+      {
+        id: "climateTemperature",
+        name: "Climate target temperature",
+        type: "number",
+        role: "level.temperature",
+        def: 22,
+        min: (0, import_saic_client.getClimateTemperatureRange)(vehicle.series).min,
+        max: (0, import_saic_client.getClimateTemperatureRange)(vehicle.series).max,
+        unit: "\xB0C"
+      },
+      {
+        id: "chargeTargetSoc",
+        name: "Charging target state of charge",
+        type: "number",
+        role: "level",
+        def: 80,
+        min: 40,
+        max: 100,
+        step: 10,
+        unit: "%",
+        states: { 40: "40%", 50: "50%", 60: "60%", 70: "70%", 80: "80%", 90: "90%", 100: "100%" }
+      },
+      {
+        id: "chargingCurrentLimit",
+        name: "Charging current limit",
+        type: "number",
+        role: "level",
+        def: 4,
+        min: 1,
+        max: 4,
+        states: { 1: "6 A", 2: "8 A", 3: "16 A", 4: "Maximum" }
+      },
+      {
+        id: "chargingScheduleStart",
+        name: "Charging schedule start (HH:MM)",
+        type: "string",
+        role: "value.time",
+        def: "00:00"
+      },
+      {
+        id: "chargingScheduleEnd",
+        name: "Charging schedule end (HH:MM)",
+        type: "string",
+        role: "value.time",
+        def: "06:00"
+      },
+      {
+        id: "chargingScheduleMode",
+        name: "Charging schedule mode",
+        type: "number",
+        role: "level",
+        def: 2,
+        min: 1,
+        max: 3,
+        states: { 1: "Until configured time", 2: "Disabled", 3: "Until configured SOC" }
+      },
+      {
+        id: "batteryHeatingScheduleEnabled",
+        name: "Battery heating schedule enabled",
+        type: "boolean",
+        role: "switch",
+        def: false
+      },
+      {
+        id: "batteryHeatingScheduleStart",
+        name: "Battery heating schedule start (HH:MM)",
+        type: "string",
+        role: "value.time",
+        def: "00:00"
+      }
+    ];
+    for (const setting of settingStates) {
+      const stateId = `${commandsId}.${setting.id}`;
+      const stateObject = await this.getObjectAsync(stateId);
+      await this.setObjectNotExistsAsync(stateId, {
+        type: "state",
+        common: {
+          name: setting.name,
+          type: setting.type,
+          role: setting.role,
+          read: true,
+          write: true,
+          def: setting.def,
+          ...setting.min === void 0 ? {} : { min: setting.min },
+          ...setting.max === void 0 ? {} : { max: setting.max },
+          ...setting.step === void 0 ? {} : { step: setting.step },
+          ...setting.unit === void 0 ? {} : { unit: setting.unit },
+          ...setting.states ? { states: setting.states } : {}
+        },
+        native: {}
+      });
+      const currentState = await this.getStateAsync(stateId);
+      if (!currentState || currentState.val === null) {
+        await this.setStateAsync(stateId, { val: setting.def, ack: true });
+      } else if (typeof currentState.val === "number" && (stateObject == null ? void 0 : stateObject.common.unit) !== setting.unit) {
+        if (setting.id === "climateTemperature") {
+          await this.setStateAsync(stateId, { val: currentState.val + 14, ack: true });
+        } else if (setting.id === "chargeTargetSoc" && currentState.val >= 1 && currentState.val <= 7) {
+          await this.setStateAsync(stateId, { val: (currentState.val + 3) * 10, ack: true });
+        }
+      }
+      await this.extendObjectAsync(stateId, {
+        common: {
+          name: setting.name,
+          type: setting.type,
+          role: setting.role,
+          read: true,
+          write: true,
+          def: setting.def,
+          ...setting.min === void 0 ? {} : { min: setting.min },
+          ...setting.max === void 0 ? {} : { max: setting.max },
+          ...setting.step === void 0 ? {} : { step: setting.step },
+          ...setting.unit === void 0 ? {} : { unit: setting.unit },
+          ...setting.states ? { states: setting.states } : {}
+        }
+      });
+    }
+    for (const action of settingActions) {
+      await this.setObjectNotExistsAsync(`${commandsId}.${action.id}`, {
+        type: "state",
+        common: { name: action.name, type: "boolean", role: "button", read: false, write: true },
+        native: {}
+      });
+      await this.setStateAsync(`${commandsId}.${action.id}`, { val: false, ack: true });
+    }
+    this.subscribeStates(`${commandsId}.*`);
     if (this.stopping) {
       return;
     }
