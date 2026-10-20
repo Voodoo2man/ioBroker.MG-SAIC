@@ -494,6 +494,56 @@ describe('SaicApiClient vehicle status', () => {
 		}
 	});
 
+	it('sends selectable seat-heating levels through the SAIC vehicle-control parameters', async () => {
+		const vin = 'LSJWH4095RN166487';
+		const hashedVin = createHash('sha256').update(vin, 'utf8').digest('hex');
+		for (const { seat, level, driverValue, passengerValue } of [
+			{ seat: 'driver' as const, level: 1, driverValue: 'AQ==', passengerValue: 'AA==' },
+			{ seat: 'passenger' as const, level: 3, driverValue: 'AA==', passengerValue: 'Aw==' },
+		]) {
+			let requestUrl: URL | undefined;
+			let requestInit: RequestInit | undefined;
+			const client = new SaicApiClient(
+				(input, init) => {
+					requestUrl = input instanceof URL ? input : new URL(input instanceof Request ? input.url : input);
+					requestInit = init;
+					return Promise.resolve(new Response('{"code":0,"data":{}}'));
+				},
+				() => 1_700_000_000_123,
+			);
+			await client.sendVehicleSeatHeating(options, 'test-access-token', vin, seat, level);
+			expect(requestUrl?.pathname).to.equal('/api.app/v1/vehicle/control');
+			const body = {
+				rvcParams: [
+					{ paramId: 17, paramValue: driverValue },
+					{ paramId: 18, paramValue: passengerValue },
+					{ paramId: 255, paramValue: 'AAAAAA==' },
+				],
+				rvcReqType: '5',
+				vin: hashedVin,
+			};
+			expect(requestInit?.body).to.equal(
+				encryptSaicRequestBody(
+					'/vehicle/control',
+					options.tenantId,
+					'test-access-token',
+					'1700000000123',
+					'application/json',
+					JSON.stringify({ rvcReqType: body.rvcReqType, rvcParams: body.rvcParams, vin: body.vin }),
+				),
+			);
+		}
+		const client = new SaicApiClient();
+		try {
+			await client.sendVehicleSeatHeating(options, 'test-access-token', vin, 'driver', 4);
+			expect.fail('Invalid seat-heating level should be rejected');
+		} catch (error) {
+			expect(error)
+				.to.be.instanceOf(Error)
+				.and.have.property('message', 'Seat heating level must be an integer from 0 to 3');
+		}
+	});
+
 	it('classifies SAIC code 4 as a remote instruction response', async () => {
 		const client = new SaicApiClient(
 			() => Promise.resolve(new Response('{"code":4,"message":"Remote instruction failed"}')),

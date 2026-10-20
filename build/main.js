@@ -27,36 +27,29 @@ var import_saic_client = require("./saic-client");
 var import_regions = require("./regions");
 var import_refresh_command = require("./refresh-command");
 var import_status_metadata = require("./status-metadata");
+var import_runtime_translations = require("./runtime-translations");
 const vehicleCommands = [
-  { id: "lock", name: "Lock doors" },
-  { id: "unlock", name: "Unlock doors" },
-  { id: "openBoot", name: "Open boot" },
-  { id: "climateStart", name: "Start climate control" },
-  { id: "climateStop", name: "Stop climate control" },
-  { id: "frontDefrost", name: "Start front defrost" },
-  { id: "rearWindowHeatStart", name: "Start rear window heating" },
-  { id: "rearWindowHeatStop", name: "Stop rear window heating" },
-  { id: "driverSeatHeatOff", name: "Driver seat heating off" },
-  { id: "driverSeatHeatLow", name: "Driver seat heating low" },
-  { id: "driverSeatHeatMedium", name: "Driver seat heating medium" },
-  { id: "driverSeatHeatHigh", name: "Driver seat heating high" },
-  { id: "passengerSeatHeatOff", name: "Passenger seat heating off" },
-  { id: "passengerSeatHeatLow", name: "Passenger seat heating low" },
-  { id: "passengerSeatHeatMedium", name: "Passenger seat heating medium" },
-  { id: "passengerSeatHeatHigh", name: "Passenger seat heating high" },
-  { id: "batteryHeatStart", name: "Start battery heating" },
-  { id: "batteryHeatStop", name: "Stop battery heating" },
-  { id: "chargingStart", name: "Start charging" },
-  { id: "chargingStop", name: "Stop charging" },
-  { id: "chargingPortLock", name: "Lock charging port" },
-  { id: "chargingPortUnlock", name: "Unlock charging port" },
-  { id: "findMyCar", name: "Trigger vehicle alarm" }
+  { id: "lock" },
+  { id: "unlock" },
+  { id: "openBoot" },
+  { id: "climateStart" },
+  { id: "climateStop" },
+  { id: "frontDefrost" },
+  { id: "rearWindowHeatStart" },
+  { id: "rearWindowHeatStop" },
+  { id: "batteryHeatStart" },
+  { id: "batteryHeatStop" },
+  { id: "chargingStart" },
+  { id: "chargingStop" },
+  { id: "chargingPortLock" },
+  { id: "chargingPortUnlock" },
+  { id: "findMyCar" }
 ];
 const settingActions = [
-  { id: "climateTemperatureApply", name: "Apply climate temperature" },
-  { id: "chargingSettingsApply", name: "Apply charging settings" },
-  { id: "chargingScheduleApply", name: "Apply charging schedule" },
-  { id: "batteryHeatingScheduleApply", name: "Apply battery heating schedule" }
+  { id: "climateTemperatureApply" },
+  { id: "chargingSettingsApply" },
+  { id: "chargingScheduleApply" },
+  { id: "batteryHeatingScheduleApply" }
 ];
 const EXPOSE_SOURCE_STATUS_DATAPOINTS = false;
 class MgSaic extends utils.Adapter {
@@ -92,7 +85,7 @@ class MgSaic extends utils.Adapter {
     await this.setObjectNotExistsAsync("commands.refresh", {
       type: "state",
       common: {
-        name: "Refresh vehicle status",
+        name: (0, import_runtime_translations.getRuntimeName)("refresh"),
         type: "boolean",
         role: "button",
         read: false,
@@ -100,6 +93,7 @@ class MgSaic extends utils.Adapter {
       },
       native: {}
     });
+    await this.extendObjectAsync("commands.refresh", { common: { name: (0, import_runtime_translations.getRuntimeName)("refresh") } });
     if (this.stopping) {
       return;
     }
@@ -297,7 +291,7 @@ class MgSaic extends utils.Adapter {
                     vehicle.vin,
                     cachedStatus,
                     "cachedStatus",
-                    "SAIC cached status"
+                    "cachedStatus"
                   );
                 }
                 await this.createCanonicalVehicleStatusObjects(vehicle.vin, cachedStatus, "cached");
@@ -321,7 +315,7 @@ class MgSaic extends utils.Adapter {
               `Received live status for ${vehicle.vin}: ${Object.keys(status.basicVehicleStatus).length} basic fields, statusTime ${(_a = status.statusTime) != null ? _a : "missing"}`
             );
             if (EXPOSE_SOURCE_STATUS_DATAPOINTS) {
-              await this.createVehicleStatusObjects(vehicle.vin, status, "liveStatus", "Live status");
+              await this.createVehicleStatusObjects(vehicle.vin, status, "liveStatus", "liveStatus");
             }
             await this.createCanonicalVehicleStatusObjects(vehicle.vin, status, "live");
             if (!this.stopping && status.statusTime !== void 0) {
@@ -396,6 +390,16 @@ class MgSaic extends utils.Adapter {
       });
       return;
     }
+    const seatHeatingVehicle = this.vehicles.find(
+      ({ vin }) => ["driverSeatHeatLevel", "passengerSeatHeatLevel"].some(
+        (stateId) => id === `${this.namespace}.vehicles.${vin}.commands.${stateId}`
+      )
+    );
+    if (seatHeatingVehicle && (id.endsWith(".driverSeatHeatLevel") || id.endsWith(".passengerSeatHeatLevel"))) {
+      const seat = id.endsWith(".driverSeatHeatLevel") ? "driver" : "passenger";
+      void this.executeSeatHeating(seatHeatingVehicle.vin, seat, state.val);
+      return;
+    }
     if (state.val !== true) {
       return;
     }
@@ -407,6 +411,46 @@ class MgSaic extends utils.Adapter {
       return;
     }
     void this.executeVehicleCommand(vehicle.vin, commandEntry.id);
+  }
+  async executeSeatHeating(vin, seat, value) {
+    const stateId = `vehicles.${vin}.commands.${seat}SeatHeatLevel`;
+    if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > 3) {
+      await this.setStateAsync(stateId, { ack: true });
+      this.log.warn(`Ignored ${seat} seat heating level for ${vin}: expected an integer from 0 to 3`);
+      return;
+    }
+    if (this.vehicleCommandsInProgress.has(vin)) {
+      await this.setStateAsync(stateId, { ack: true });
+      this.log.warn(`Ignored ${seat} seat heating for ${vin}: another vehicle command is still running`);
+      return;
+    }
+    this.vehicleCommandsInProgress.add(vin);
+    try {
+      if (!this.client || !this.loginOptions) {
+        throw new Error("SAIC client is not initialized");
+      }
+      if (!this.accessToken || this.accessTokenExpiresAt <= Date.now() + 3e4) {
+        await this.authenticate();
+      }
+      await this.client.sendVehicleSeatHeating(
+        this.loginOptions,
+        this.accessToken,
+        vin,
+        seat,
+        value,
+        this.abortController.signal
+      );
+      await this.setStateAsync(stateId, { val: value, ack: true });
+      this.log.info(`SAIC ${seat} seat heating level ${value} completed for ${vin}`);
+    } catch (error) {
+      if (!this.stopping) {
+        await this.setStateAsync(stateId, { val: value, ack: true });
+        const details = error instanceof Error ? error.message : "Unknown command error";
+        this.log.warn(`SAIC ${seat} seat heating failed for ${vin}: ${details}`);
+      }
+    } finally {
+      this.vehicleCommandsInProgress.delete(vin);
+    }
   }
   async executeVehicleSetting(vin, action) {
     const stateId = `vehicles.${vin}.commands.${action}`;
@@ -522,7 +566,7 @@ class MgSaic extends utils.Adapter {
       this.vehicleCommandsInProgress.delete(vin);
     }
   }
-  async createVehicleStatusObjects(vin, status, channel = "status", channelName = "Current status") {
+  async createVehicleStatusObjects(vin, status, channel = "status", channelName = "currentStatus") {
     if (this.stopping) {
       return;
     }
@@ -532,9 +576,10 @@ class MgSaic extends utils.Adapter {
     const statusId = `vehicles.${vin}.${channel}`;
     await this.setObjectNotExistsAsync(statusId, {
       type: "channel",
-      common: { name: channelName },
+      common: { name: (0, import_runtime_translations.getRuntimeName)(channelName) },
       native: {}
     });
+    await this.extendObjectAsync(statusId, { common: { name: (0, import_runtime_translations.getRuntimeName)(channelName) } });
     if (this.stopping) {
       return;
     }
@@ -554,9 +599,10 @@ class MgSaic extends utils.Adapter {
       const groupId = `${statusId}.${group}`;
       await this.setObjectNotExistsAsync(groupId, {
         type: "channel",
-        common: { name: group },
+        common: { name: (0, import_runtime_translations.getRuntimeName)(group) },
         native: {}
       });
+      await this.extendObjectAsync(groupId, { common: { name: (0, import_runtime_translations.getRuntimeName)(group) } });
       if (this.stopping) {
         return;
       }
@@ -597,16 +643,17 @@ class MgSaic extends utils.Adapter {
     if (this.stopping || !(0, import_saic_client.isVehicleStatusNotOlder)(status.statusTime, this.lastCanonicalStatusTimes.get(vin))) {
       return;
     }
-    await this.createVehicleStatusObjects(vin, status, "status", "Current status");
+    await this.createVehicleStatusObjects(vin, status);
     if (this.stopping) {
       return;
     }
     const sourceId = `vehicles.${vin}.status.source`;
     await this.setObjectNotExistsAsync(sourceId, {
       type: "state",
-      common: { name: "Status source", type: "string", role: "text", read: true, write: false },
+      common: { name: (0, import_runtime_translations.getRuntimeName)("statusSource"), type: "string", role: "text", read: true, write: false },
       native: {}
     });
+    await this.extendObjectAsync(sourceId, { common: { name: (0, import_runtime_translations.getRuntimeName)("statusSource") } });
     if (this.stopping) {
       return;
     }
@@ -642,14 +689,15 @@ class MgSaic extends utils.Adapter {
     const commandsId = `${deviceId}.commands`;
     await this.setObjectNotExistsAsync(commandsId, {
       type: "channel",
-      common: { name: "Remote commands" },
+      common: { name: (0, import_runtime_translations.getRuntimeName)("commands") },
       native: {}
     });
+    await this.extendObjectAsync(commandsId, { common: { name: (0, import_runtime_translations.getRuntimeName)("commands") } });
     for (const command of vehicleCommands) {
       await this.setObjectNotExistsAsync(`${commandsId}.${command.id}`, {
         type: "state",
         common: {
-          name: command.name,
+          name: (0, import_runtime_translations.getRuntimeName)(command.id),
           type: "boolean",
           role: "button",
           read: false,
@@ -657,12 +705,32 @@ class MgSaic extends utils.Adapter {
         },
         native: {}
       });
+      await this.extendObjectAsync(`${commandsId}.${command.id}`, {
+        common: { name: (0, import_runtime_translations.getRuntimeName)(command.id) }
+      });
       await this.setStateAsync(`${commandsId}.${command.id}`, { val: false, ack: true });
     }
     const settingStates = [
       {
+        id: "driverSeatHeatLevel",
+        type: "number",
+        role: "level",
+        def: 0,
+        min: 0,
+        max: 3,
+        states: { 0: "Off", 1: "Low", 2: "Medium", 3: "High" }
+      },
+      {
+        id: "passengerSeatHeatLevel",
+        type: "number",
+        role: "level",
+        def: 0,
+        min: 0,
+        max: 3,
+        states: { 0: "Off", 1: "Low", 2: "Medium", 3: "High" }
+      },
+      {
         id: "climateTemperature",
-        name: "Climate target temperature",
         type: "number",
         role: "level.temperature",
         def: 22,
@@ -672,7 +740,6 @@ class MgSaic extends utils.Adapter {
       },
       {
         id: "chargeTargetSoc",
-        name: "Charging target state of charge",
         type: "number",
         role: "level",
         def: 80,
@@ -684,7 +751,6 @@ class MgSaic extends utils.Adapter {
       },
       {
         id: "chargingCurrentLimit",
-        name: "Charging current limit",
         type: "number",
         role: "level",
         def: 4,
@@ -694,21 +760,18 @@ class MgSaic extends utils.Adapter {
       },
       {
         id: "chargingScheduleStart",
-        name: "Charging schedule start (HH:MM)",
         type: "string",
         role: "value.time",
         def: "00:00"
       },
       {
         id: "chargingScheduleEnd",
-        name: "Charging schedule end (HH:MM)",
         type: "string",
         role: "value.time",
         def: "06:00"
       },
       {
         id: "chargingScheduleMode",
-        name: "Charging schedule mode",
         type: "number",
         role: "level",
         def: 2,
@@ -718,14 +781,12 @@ class MgSaic extends utils.Adapter {
       },
       {
         id: "batteryHeatingScheduleEnabled",
-        name: "Battery heating schedule enabled",
         type: "boolean",
         role: "switch",
         def: false
       },
       {
         id: "batteryHeatingScheduleStart",
-        name: "Battery heating schedule start (HH:MM)",
         type: "string",
         role: "value.time",
         def: "00:00"
@@ -737,7 +798,7 @@ class MgSaic extends utils.Adapter {
       await this.setObjectNotExistsAsync(stateId, {
         type: "state",
         common: {
-          name: setting.name,
+          name: (0, import_runtime_translations.getRuntimeName)(setting.id),
           type: setting.type,
           role: setting.role,
           read: true,
@@ -763,7 +824,7 @@ class MgSaic extends utils.Adapter {
       }
       await this.extendObjectAsync(stateId, {
         common: {
-          name: setting.name,
+          name: (0, import_runtime_translations.getRuntimeName)(setting.id),
           type: setting.type,
           role: setting.role,
           read: true,
@@ -780,8 +841,11 @@ class MgSaic extends utils.Adapter {
     for (const action of settingActions) {
       await this.setObjectNotExistsAsync(`${commandsId}.${action.id}`, {
         type: "state",
-        common: { name: action.name, type: "boolean", role: "button", read: false, write: true },
+        common: { name: (0, import_runtime_translations.getRuntimeName)(action.id), type: "boolean", role: "button", read: false, write: true },
         native: {}
+      });
+      await this.extendObjectAsync(`${commandsId}.${action.id}`, {
+        common: { name: (0, import_runtime_translations.getRuntimeName)(action.id) }
       });
       await this.setStateAsync(`${commandsId}.${action.id}`, { val: false, ack: true });
     }

@@ -367,6 +367,44 @@ class SaicApiClient {
     await this.sendSignedVehiclePost(options, accessToken, vin, commandRequest, signal);
   }
   /**
+   * Set a seat-heating level using SAIC's vehicle-control parameters.
+   *
+   * @param options Account region and tenant settings.
+   * @param accessToken Token returned by {@link login}.
+   * @param vin Vehicle identification number.
+   * @param seat Seat to control.
+   * @param level Heating level from 0 (off) to 3 (high).
+   * @param signal Optional caller cancellation signal.
+   */
+  async sendVehicleSeatHeating(options, accessToken, vin, seat, level, signal) {
+    if (!Number.isInteger(level) || level < 0 || level > 3) {
+      throw new Error("Seat heating level must be an integer from 0 to 3");
+    }
+    const param = (paramId, value) => ({
+      paramId,
+      paramValue: Buffer.from([value]).toString("base64")
+    });
+    const hashedVin = (0, import_node_crypto.createHash)("sha256").update(vin, "utf8").digest("hex");
+    await this.sendSignedVehiclePost(
+      options,
+      accessToken,
+      vin,
+      {
+        path: "/vehicle/control",
+        body: {
+          rvcReqType: "5",
+          rvcParams: [
+            param(17, seat === "driver" ? level : 0),
+            param(18, seat === "passenger" ? level : 0),
+            { paramId: 255, paramValue: Buffer.from([0, 0, 0, 0]).toString("base64") }
+          ],
+          vin: hashedVin
+        }
+      },
+      signal
+    );
+  }
+  /**
    * Apply a supported vehicle setting using the documented SAIC request format.
    *
    * @param options Account region and tenant settings.
