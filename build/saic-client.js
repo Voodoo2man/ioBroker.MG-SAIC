@@ -83,12 +83,14 @@ class SaicApiClient {
   now;
   monotonicNow;
   wait;
+  timerFunctions;
   /**
    * @param fetchFunction HTTP transport, injectable for tests.
    * @param now Clock function returning milliseconds since epoch.
    * @param wait Delay function used between retry attempts.
    * @param debug Optional debug logger that receives status diagnostics without response values.
    * @param monotonicNow Monotonic clock used to bound live event polling.
+   * @param timerFunctions Optional timer functions used for HTTP request timeouts.
    */
   constructor(fetchFunction = fetch, now = Date.now, wait = (milliseconds, signal) => new Promise((resolve, reject) => {
     if (signal == null ? void 0 : signal.aborted) {
@@ -108,11 +110,17 @@ class SaicApiClient {
     }, milliseconds);
     timerRef.current = timer;
     signal == null ? void 0 : signal.addEventListener("abort", onAbort, { once: true });
-  }), debug = () => void 0, monotonicNow = () => performance.now()) {
+  }), debug = () => void 0, monotonicNow = () => performance.now(), timerFunctions = {
+    setTimeout: (callback, milliseconds) => {
+      const timer = setTimeout(callback, milliseconds);
+      return () => clearTimeout(timer);
+    }
+  }) {
     this.fetchFunction = fetchFunction;
     this.now = now;
     this.wait = wait;
     this.monotonicNow = monotonicNow;
+    this.timerFunctions = timerFunctions;
     this.debug = debug;
   }
   debug;
@@ -666,7 +674,7 @@ class SaicApiClient {
   }
   async fetchResponse(url, init, timeoutMs, signal) {
     const controller = new AbortController();
-    const timer = setTimeout(
+    const clearTimer = this.timerFunctions.setTimeout(
       () => controller.abort(new DOMException("Request timed out", "TimeoutError")),
       timeoutMs
     );
@@ -684,7 +692,7 @@ class SaicApiClient {
         throw new SaicBodyReadError(this.errorMessage(error));
       }
     } finally {
-      clearTimeout(timer);
+      clearTimer();
       signal == null ? void 0 : signal.removeEventListener("abort", abort);
     }
   }

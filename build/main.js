@@ -161,7 +161,23 @@ class MgSaic extends utils.Adapter {
       return;
     }
     try {
-      this.client = new import_saic_client.SaicApiClient(void 0, Date.now, void 0, (message) => this.log.debug(message));
+      this.client = new import_saic_client.SaicApiClient(
+        void 0,
+        Date.now,
+        void 0,
+        (message) => this.log.debug(message),
+        void 0,
+        {
+          setTimeout: (callback, milliseconds) => {
+            const timer = this.setTimeout(callback, milliseconds);
+            return () => {
+              if (timer !== void 0) {
+                this.clearTimeout(timer);
+              }
+            };
+          }
+        }
+      );
       this.loginOptions = {
         ...region,
         accountType: config.accountType,

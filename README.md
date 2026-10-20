@@ -32,8 +32,7 @@ The adapter is intended for connecting MG and SAIC vehicles to ioBroker through 
 The adapter is not yet available in the ioBroker adapter catalog. It can be installed through the catalog after publication.
 
 ## Changelog
-
-### **WORK IN PROGRESS**
+### 0.0.2 (2026-10-20)
 
 - (Voodoo2man) Added regional iSmart account setup, vehicle status, and supported remote controls.
 
