@@ -32,7 +32,7 @@ The adapter is not yet available in the ioBroker adapter catalog. It can be inst
 
 ## Changelog
 
-### **WORK IN PROGRESS**
+### 0.0.1 (2026-10-20)
 
 - (Voodoo2man) Initial Version
 
@@ -40,7 +40,7 @@ The adapter is not yet available in the ioBroker adapter catalog. It can be inst
 
 MIT License
 
-Copyright (c) 2026 Voodoo2man Voodoo2man@hotmail.de
+Copyright (c) 2026 Voodoo2man Voodoo2man@outlook.de
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
