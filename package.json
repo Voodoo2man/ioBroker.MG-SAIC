@@ -4,12 +4,13 @@
   "description": "Connect MG and SAIC vehicles to ioBroker through regional iSmart cloud APIs",
   "author": {
     "name": "Voodoo2man",
-    "email": "62031459+Voodoo2man@users.noreply.github.com"
+    "email": "Voodoo2man@outlook.de"
   },
   "contributors": [],
-  "homepage": "https://github.com/Voodoo2man/ioBroker.MG-SAIC",
+  "homepage": "https://github.com/Voodoo2man/ioBroker.mg-saic",
   "license": "MIT",
   "keywords": [
+    "ioBroker",
     "MG",
     "SAIC",
     "iSmart",
@@ -18,10 +19,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/Voodoo2man/ioBroker.MG-SAIC.git"
+    "url": "https://github.com/Voodoo2man/ioBroker.mg-saic.git"
   },
   "engines": {
-    "node": ">= 20"
+    "node": ">=22.19.0"
   },
   "dependencies": {
     "@iobroker/adapter-core": "^3.4.3"
@@ -35,10 +36,9 @@
     "@iobroker/dev-server": "^0.8.0",
     "@iobroker/eslint-config": "^2.3.4",
     "@iobroker/testing": "^6.3.1",
-    "@tsconfig/node20": "^20.1.10",
+    "@tsconfig/node22": "^22.0.6",
     "@types/iobroker": "npm:@iobroker/types@^7.2.5",
-    "@types/mocha": "^10.0.10",
-    "@types/node": "^20.19.43",
+    "@types/node": "^22.20.5",
     "rimraf": "^6.1.3",
     "source-map-support": "^0.5.21",
     "ts-node": "^10.9.2",

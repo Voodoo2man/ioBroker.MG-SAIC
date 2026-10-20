@@ -16,7 +16,10 @@
 					"icon": "warning",
 					"text": "To avoid possible session interference with the mobile app, use a separate iSmart account for ioBroker where possible. Share the vehicle with that account and grant the permissions needed for your intended use.",
 					"xs": 12,
-					"sm": 12
+					"sm": 12,
+					"md": 12,
+					"lg": 12,
+					"xl": 12
 				},
 				"_connectionHeader": {
 					"type": "header",
@@ -40,13 +43,19 @@
 						{ "label": "Rest of World", "value": "Rest of World" }
 					],
 					"xs": 12,
-					"sm": 6
+					"sm": 6,
+					"md": 6,
+					"lg": 6,
+					"xl": 6
 				},
 				"accountType": {
 					"type": "select",
 					"label": "Login type",
 					"xs": 12,
 					"sm": 6,
+					"md": 6,
+					"lg": 6,
+					"xl": 6,
 					"options": [
 						{ "label": "Email", "value": "email" },
 						{ "label": "Phone number", "value": "phone" }
@@ -65,7 +74,9 @@
 					"maxLength": 254,
 					"xs": 12,
 					"sm": 12,
-					"md": 6
+					"md": 6,
+					"lg": 6,
+					"xl": 6
 				},
 				"phoneCountryCode": {
 					"type": "text",
@@ -74,7 +85,9 @@
 					"hidden": "data.accountType !== 'phone'",
 					"xs": 12,
 					"sm": 12,
-					"md": 6
+					"md": 6,
+					"lg": 6,
+					"xl": 6
 				},
 				"password": {
 					"type": "password",
@@ -82,7 +95,9 @@
 					"visible": false,
 					"xs": 12,
 					"sm": 12,
-					"md": 6
+					"md": 6,
+					"lg": 6,
+					"xl": 6
 				},
 				"_statusHeader": {
 					"type": "header",
@@ -99,7 +114,9 @@
 					"step": 1,
 					"xs": 12,
 					"sm": 12,
-					"md": 6
+					"md": 6,
+					"lg": 6,
+					"xl": 6
 				}
 			}
 		}

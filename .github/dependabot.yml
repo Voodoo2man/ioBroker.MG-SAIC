@@ -4,10 +4,14 @@ updates:
     directory: "/"
     schedule:
       interval: monthly
-      day: 10
       time: "00:05"
       timezone: Europe/Berlin
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 15
+    cooldown:
+      default-days: 7
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     assignees:
       - Voodoo2man
     versioning-strategy: increase
@@ -16,9 +20,8 @@ updates:
     directory: "/"
     schedule:
       interval: monthly
-      day: 10
       time: "00:05"
       timezone: Europe/Berlin
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 15
     assignees:
       - Voodoo2man
