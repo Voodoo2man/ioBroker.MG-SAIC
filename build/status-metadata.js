@@ -590,6 +590,188 @@ const statusNames = {
     pl: "Wy\u015Bwietlany zasi\u0119g elektryczny",
     uk: "\u0412\u0456\u0434\u043E\u0431\u0440\u0430\u0436\u0443\u0432\u0430\u043D\u0438\u0439 \u0437\u0430\u043F\u0430\u0441 \u0445\u043E\u0434\u0443 \u043D\u0430 \u0435\u043B\u0435\u043A\u0442\u0440\u043E\u0442\u044F\u0437\u0456",
     "zh-cn": "\u663E\u793A\u7684\u7535\u52A8\u7EED\u822A\u91CC\u7A0B"
+  },
+  clstrDspdFuelLvlSgmt: {
+    en: "Displayed fuel level segment",
+    de: "Angezeigtes Kraftstoffsegment",
+    ru: "\u041E\u0442\u043E\u0431\u0440\u0430\u0436\u0430\u0435\u043C\u044B\u0439 \u0441\u0435\u0433\u043C\u0435\u043D\u0442 \u0443\u0440\u043E\u0432\u043D\u044F \u0442\u043E\u043F\u043B\u0438\u0432\u0430",
+    pt: "Segmento exibido do n\xEDvel de combust\xEDvel",
+    nl: "Weergegeven brandstofniveausegment",
+    fr: "Segment affich\xE9 du niveau de carburant",
+    it: "Segmento visualizzato del livello carburante",
+    es: "Segmento mostrado del nivel de combustible",
+    pl: "Wy\u015Bwietlany segment poziomu paliwa",
+    uk: "\u0412\u0456\u0434\u043E\u0431\u0440\u0430\u0436\u0443\u0432\u0430\u043D\u0438\u0439 \u0441\u0435\u0433\u043C\u0435\u043D\u0442 \u0440\u0456\u0432\u043D\u044F \u043F\u0430\u043B\u044C\u043D\u043E\u0433\u043E",
+    "zh-cn": "\u663E\u793A\u7684\u71C3\u6CB9\u6DB2\u4F4D\u533A\u6BB5"
+  },
+  currentJourneyId: {
+    en: "Current journey ID",
+    de: "ID der aktuellen Fahrt",
+    ru: "\u0418\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440 \u0442\u0435\u043A\u0443\u0449\u0435\u0439 \u043F\u043E\u0435\u0437\u0434\u043A\u0438",
+    pt: "ID da viagem atual",
+    nl: "ID van huidige rit",
+    fr: "Identifiant du trajet actuel",
+    it: "ID del viaggio attuale",
+    es: "ID del viaje actual",
+    pl: "Identyfikator bie\u017C\u0105cej podr\xF3\u017Cy",
+    uk: "\u0406\u0434\u0435\u043D\u0442\u0438\u0444\u0456\u043A\u0430\u0442\u043E\u0440 \u043F\u043E\u0442\u043E\u0447\u043D\u043E\u0457 \u043F\u043E\u0457\u0437\u0434\u043A\u0438",
+    "zh-cn": "\u5F53\u524D\u884C\u7A0B ID"
+  },
+  extendedData2: {
+    en: "Additional status data 2",
+    de: "Zus\xE4tzliche Statusdaten 2",
+    ru: "\u0414\u043E\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435 \u0441\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u044F 2",
+    pt: "Dados adicionais de status 2",
+    nl: "Aanvullende statusgegevens 2",
+    fr: "Donn\xE9es de statut suppl\xE9mentaires 2",
+    it: "Dati di stato aggiuntivi 2",
+    es: "Datos de estado adicionales 2",
+    pl: "Dodatkowe dane statusu 2",
+    uk: "\u0414\u043E\u0434\u0430\u0442\u043A\u043E\u0432\u0456 \u0434\u0430\u043D\u0456 \u0441\u0442\u0430\u043D\u0443 2",
+    "zh-cn": "\u9644\u52A0\u72B6\u6001\u6570\u636E 2"
+  },
+  frontLeftSeatHeatLevel: {
+    en: "Heated seat front left",
+    de: "Sitzheizung vorne links",
+    ru: "\u041E\u0431\u043E\u0433\u0440\u0435\u0432 \u043F\u0435\u0440\u0435\u0434\u043D\u0435\u0433\u043E \u043B\u0435\u0432\u043E\u0433\u043E \u0441\u0438\u0434\u0435\u043D\u044C\u044F",
+    pt: "Aquecimento do banco dianteiro esquerdo",
+    nl: "Stoelverwarming linksvoor",
+    fr: "Si\xE8ge avant gauche chauffant",
+    it: "Riscaldamento sedile anteriore sinistro",
+    es: "Calefacci\xF3n del asiento delantero izquierdo",
+    pl: "Ogrzewanie lewego przedniego siedzenia",
+    uk: "\u041E\u0431\u0456\u0433\u0440\u0456\u0432 \u043F\u0435\u0440\u0435\u0434\u043D\u044C\u043E\u0433\u043E \u043B\u0456\u0432\u043E\u0433\u043E \u0441\u0438\u0434\u0456\u043D\u043D\u044F",
+    "zh-cn": "\u5DE6\u524D\u5EA7\u6905\u52A0\u70ED"
+  },
+  frontRightSeatHeatLevel: {
+    en: "Heated seat front right",
+    de: "Sitzheizung vorne rechts",
+    ru: "\u041E\u0431\u043E\u0433\u0440\u0435\u0432 \u043F\u0435\u0440\u0435\u0434\u043D\u0435\u0433\u043E \u043F\u0440\u0430\u0432\u043E\u0433\u043E \u0441\u0438\u0434\u0435\u043D\u044C\u044F",
+    pt: "Aquecimento do banco dianteiro direito",
+    nl: "Stoelverwarming rechtsvoor",
+    fr: "Si\xE8ge avant droit chauffant",
+    it: "Riscaldamento sedile anteriore destro",
+    es: "Calefacci\xF3n del asiento delantero derecho",
+    pl: "Ogrzewanie prawego przedniego siedzenia",
+    uk: "\u041E\u0431\u0456\u0433\u0440\u0456\u0432 \u043F\u0435\u0440\u0435\u0434\u043D\u044C\u043E\u0433\u043E \u043F\u0440\u0430\u0432\u043E\u0433\u043E \u0441\u0438\u0434\u0456\u043D\u043D\u044F",
+    "zh-cn": "\u53F3\u524D\u5EA7\u6905\u52A0\u70ED"
+  },
+  gpsAltitude: {
+    en: "GPS altitude",
+    de: "GPS-H\xF6he",
+    ru: "\u0412\u044B\u0441\u043E\u0442\u0430 GPS",
+    pt: "Altitude GPS",
+    nl: "GPS-hoogte",
+    fr: "Altitude GPS",
+    it: "Altitudine GPS",
+    es: "Altitud GPS",
+    pl: "Wysoko\u015B\u0107 GPS",
+    uk: "\u0412\u0438\u0441\u043E\u0442\u0430 GPS",
+    "zh-cn": "GPS \u6D77\u62D4"
+  },
+  gpsHdop: {
+    en: "GPS horizontal accuracy (HDOP)",
+    de: "GPS-Horizontalgenauigkeit (HDOP)",
+    ru: "\u0413\u043E\u0440\u0438\u0437\u043E\u043D\u0442\u0430\u043B\u044C\u043D\u0430\u044F \u0442\u043E\u0447\u043D\u043E\u0441\u0442\u044C GPS (HDOP)",
+    pt: "Precis\xE3o horizontal do GPS (HDOP)",
+    nl: "Horizontale GPS-nauwkeurigheid (HDOP)",
+    fr: "Pr\xE9cision horizontale GPS (HDOP)",
+    it: "Precisione orizzontale GPS (HDOP)",
+    es: "Precisi\xF3n horizontal GPS (HDOP)",
+    pl: "Dok\u0142adno\u015B\u0107 pozioma GPS (HDOP)",
+    uk: "\u0413\u043E\u0440\u0438\u0437\u043E\u043D\u0442\u0430\u043B\u044C\u043D\u0430 \u0442\u043E\u0447\u043D\u0456\u0441\u0442\u044C GPS (HDOP)",
+    "zh-cn": "GPS \u6C34\u5E73\u7CBE\u5EA6 (HDOP)"
+  },
+  gpsHeading: {
+    en: "GPS heading",
+    de: "GPS-Kurs",
+    ru: "\u041D\u0430\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435 GPS",
+    pt: "Dire\xE7\xE3o GPS",
+    nl: "GPS-koers",
+    fr: "Cap GPS",
+    it: "Direzione GPS",
+    es: "Rumbo GPS",
+    pl: "Kierunek GPS",
+    uk: "\u041D\u0430\u043F\u0440\u044F\u043C\u043E\u043A GPS",
+    "zh-cn": "GPS \u822A\u5411"
+  },
+  gpsSatellites: {
+    en: "GPS satellites",
+    de: "GPS-Satelliten",
+    ru: "\u0421\u043F\u0443\u0442\u043D\u0438\u043A\u0438 GPS",
+    pt: "Sat\xE9lites GPS",
+    nl: "GPS-satellieten",
+    fr: "Satellites GPS",
+    it: "Satelliti GPS",
+    es: "Sat\xE9lites GPS",
+    pl: "Satelity GPS",
+    uk: "\u0421\u0443\u043F\u0443\u0442\u043D\u0438\u043A\u0438 GPS",
+    "zh-cn": "GPS \u536B\u661F\u6570"
+  },
+  lastKeySeen: {
+    en: "Last key detected",
+    de: "Zuletzt erkannter Schl\xFCssel",
+    ru: "\u041F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0439 \u043E\u0431\u043D\u0430\u0440\u0443\u0436\u0435\u043D\u043D\u044B\u0439 \u043A\u043B\u044E\u0447",
+    pt: "\xDAltima chave detectada",
+    nl: "Laatst gedetecteerde sleutel",
+    fr: "Derni\xE8re cl\xE9 d\xE9tect\xE9e",
+    it: "Ultima chiave rilevata",
+    es: "\xDAltima llave detectada",
+    pl: "Ostatni wykryty kluczyk",
+    uk: "\u041E\u0441\u0442\u0430\u043D\u043D\u0456\u0439 \u0432\u0438\u044F\u0432\u043B\u0435\u043D\u0438\u0439 \u043A\u043B\u044E\u0447",
+    "zh-cn": "\u6700\u8FD1\u68C0\u6D4B\u5230\u7684\u94A5\u5319"
+  },
+  mainBeamStatus: {
+    en: "Main beam",
+    de: "Fernlicht",
+    ru: "\u0414\u0430\u043B\u044C\u043D\u0438\u0439 \u0441\u0432\u0435\u0442",
+    pt: "Farol alto",
+    nl: "Grootlicht",
+    fr: "Feux de route",
+    it: "Abbaglianti",
+    es: "Luces largas",
+    pl: "\u015Awiat\u0142a drogowe",
+    uk: "\u0414\u0430\u043B\u044C\u043D\u0454 \u0441\u0432\u0456\u0442\u043B\u043E",
+    "zh-cn": "\u8FDC\u5149\u706F"
+  },
+  powerMode: {
+    en: "Power mode",
+    de: "Betriebsmodus",
+    ru: "\u0420\u0435\u0436\u0438\u043C \u043F\u0438\u0442\u0430\u043D\u0438\u044F",
+    pt: "Modo de energia",
+    nl: "Vermogensmodus",
+    fr: "Mode de puissance",
+    it: "Modalit\xE0 di alimentazione",
+    es: "Modo de alimentaci\xF3n",
+    pl: "Tryb zasilania",
+    uk: "\u0420\u0435\u0436\u0438\u043C \u0436\u0438\u0432\u043B\u0435\u043D\u043D\u044F",
+    "zh-cn": "\u7535\u6E90\u6A21\u5F0F"
+  },
+  rmtHtdRrWndSt: {
+    en: "Rear window heating",
+    de: "Heckscheibenheizung",
+    ru: "\u041E\u0431\u043E\u0433\u0440\u0435\u0432 \u0437\u0430\u0434\u043D\u0435\u0433\u043E \u0441\u0442\u0435\u043A\u043B\u0430",
+    pt: "Aquecimento do vidro traseiro",
+    nl: "Achterruitverwarming",
+    fr: "D\xE9givrage de la lunette arri\xE8re",
+    it: "Riscaldamento del lunotto posteriore",
+    es: "Calefacci\xF3n de la luneta trasera",
+    pl: "Ogrzewanie tylnej szyby",
+    uk: "\u041E\u0431\u0456\u0433\u0440\u0456\u0432 \u0437\u0430\u0434\u043D\u044C\u043E\u0433\u043E \u0441\u043A\u043B\u0430",
+    "zh-cn": "\u540E\u7A97\u52A0\u70ED"
+  },
+  steeringWheelHeatFailureReason: {
+    en: "Steering wheel heating failure reason",
+    de: "Fehlergrund der Lenkradheizung",
+    ru: "\u041F\u0440\u0438\u0447\u0438\u043D\u0430 \u043D\u0435\u0438\u0441\u043F\u0440\u0430\u0432\u043D\u043E\u0441\u0442\u0438 \u043E\u0431\u043E\u0433\u0440\u0435\u0432\u0430 \u0440\u0443\u043B\u0435\u0432\u043E\u0433\u043E \u043A\u043E\u043B\u0435\u0441\u0430",
+    pt: "Motivo da falha do aquecimento do volante",
+    nl: "Reden voor storing in stuurwielverwarming",
+    fr: "Cause de panne du chauffage du volant",
+    it: "Causa del guasto del riscaldamento del volante",
+    es: "Motivo del fallo de la calefacci\xF3n del volante",
+    pl: "Przyczyna awarii podgrzewania kierownicy",
+    uk: "\u041F\u0440\u0438\u0447\u0438\u043D\u0430 \u043D\u0435\u0441\u043F\u0440\u0430\u0432\u043D\u043E\u0441\u0442\u0456 \u043E\u0431\u0456\u0433\u0440\u0456\u0432\u0443 \u043A\u0435\u0440\u043C\u0430",
+    "zh-cn": "\u65B9\u5411\u76D8\u52A0\u70ED\u6545\u969C\u539F\u56E0"
   }
 };
 const booleanStatusFields = /* @__PURE__ */ new Set([
@@ -609,9 +791,31 @@ const booleanStatusFields = /* @__PURE__ */ new Set([
   "rearLeftWindow",
   "rearRightDoor",
   "rearRightWindow",
+  "rmtHtdRrWndSt",
   "sideLightStatus",
   "sunroofStatus"
 ]);
+const statusRoles = {
+  batteryVoltage: "value.voltage",
+  currentJourneyDistance: "value.distance",
+  exteriorTemperature: "value.temperature",
+  extendedData1: "value.battery",
+  frontLeftTyrePressure: "value.pressure",
+  frontRightTyrePressure: "value.pressure",
+  fuelRange: "value.distance",
+  fuelRangeElec: "value.distance",
+  fuelLevelPrc: "value.fill",
+  gpsAltitude: "value.gps.elevation",
+  gpsLatitude: "value.gps.latitude",
+  gpsLongitude: "value.gps.longitude",
+  interiorTemperature: "value.temperature",
+  mileage: "value.distance",
+  rearLeftTyrePressure: "value.pressure",
+  rearRightTyrePressure: "value.pressure",
+  speed: "value.speed",
+  statusTime: "date",
+  vehElecRngDsp: "value.distance"
+};
 const statusUnits = {
   batteryVoltage: "V",
   currentJourneyDistance: "km",
@@ -645,7 +849,7 @@ const statusScales = {
   speed: { factor: 0.1, precision: 1 }
 };
 function getVehicleStatusMetadata(key) {
-  var _a;
+  var _a, _b;
   const name = (_a = statusNames[key]) != null ? _a : Object.fromEntries(
     ["en", "de", "ru", "pt", "nl", "fr", "it", "es", "pl", "uk", "zh-cn"].map((language) => [
       language,
@@ -656,11 +860,15 @@ function getVehicleStatusMetadata(key) {
     return { type: "number", role: "date", name };
   }
   if (booleanStatusFields.has(key)) {
-    return { type: "boolean", role: "indicator", name };
+    return {
+      type: "boolean",
+      role: key.endsWith("Door") ? "sensor.door" : key.endsWith("Window") ? "sensor.window" : "indicator",
+      name
+    };
   }
   return {
     type: "number",
-    role: "value",
+    role: (_b = statusRoles[key]) != null ? _b : "value",
     name,
     ...statusUnits[key] ? { unit: statusUnits[key] } : {}
   };

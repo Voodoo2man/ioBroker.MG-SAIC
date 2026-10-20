@@ -24,6 +24,8 @@ The Admin form accepts an email address or phone number, an optional phone count
 - Each vehicle exposes momentary buttons under `vehicles.<VIN>.commands` for door locking/unlocking, boot release, climate and front/rear defrost, driver/passenger seat heating levels, battery heating, charging start/stop, charging-port locking/unlocking, and the horn-and-lights vehicle finder. SAIC command completion is logged; availability and behavior depend on the vehicle and account permissions.
 - Writable settings in the same channel configure the climate target temperature in °C, charging target SOC (40-100% in 10% steps), charging current limit (6 A, 8 A, 16 A, or maximum), scheduled charging times and mode, and battery-heating schedule enablement and start time. Apply each group with its matching `*Apply` button. Climate temperatures are converted to the SAIC index using the vehicle series' supported range. Battery-heating start time uses the next occurrence in the adapter host's local time zone. Heated steering wheel control is not exposed because the HA integration does not define a writable steering-wheel heating command.
 - All finite numeric fields in SAIC's `basicVehicleStatus` and numeric GPS waypoint fields are exposed, including fields added by SAIC that the adapter does not yet have a friendly name for. The `extendedData1` field is exposed as battery state of charge; on some vehicle types its meaning may differ. Known measurements are converted from documented raw API scales where available; `remoteClimateStatus` retains its numeric API codes. Status timestamps older than 24 hours or more than five minutes in the future are rejected; responses without a timestamp remain usable, and an older live response cannot replace a newer one. Data from separate charging endpoints is not currently requested. Persistence and India TAP are not available yet.
+- Binary door, window, lighting, engine, and other known status fields are exposed as booleans in both live and cached status channels. Read-only measurement states use specific ioBroker roles where their meaning is known, such as temperature, distance, voltage, pressure, and GPS coordinates; these metadata and value conversions are shared by both channels.
+- Known datapoint names are localized in all supported adapter languages for both live and cached status channels. SAIC fields not yet recognized by the adapter retain their technical field names.
 - Home Assistant is not a runtime dependency.
 
 ## Installation
@@ -42,6 +44,8 @@ The adapter is not published yet. Install it through the ioBroker Admin adapter 
 - (Voodoo2man) Added per-vehicle controls for access, climate, heating, charging, vehicle finding, and charging schedules.
 - (Voodoo2man) Clarified that SAIC code 4 is a remote service or vehicle response, not an adapter parsing error.
 - (Voodoo2man) Matched climate target temperature and charging target SoC controls to Home Assistant's Celsius and percentage values.
+- (Voodoo2man) Converted binary live and cached status codes to booleans and assigned specific ioBroker roles to known measurements.
+- (Voodoo2man) Added localized names for known live and cached status datapoints in all supported languages.
 
 
 ## License

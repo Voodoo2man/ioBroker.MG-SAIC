@@ -16,26 +16,72 @@ describe('getVehicleStatusMetadata', () => {
 	});
 
 	it('marks binary vehicle states as boolean indicators', () => {
-		for (const key of ['driverDoor', 'lockStatus', 'engineStatus', 'onlineStatus']) {
+		const booleanFields = [
+			'bonnetStatus',
+			'bootStatus',
+			'canBusActive',
+			'dippedBeamStatus',
+			'driverDoor',
+			'driverWindow',
+			'engineStatus',
+			'handBrake',
+			'lockStatus',
+			'onlineStatus',
+			'passengerDoor',
+			'passengerWindow',
+			'rearLeftDoor',
+			'rearLeftWindow',
+			'rearRightDoor',
+			'rearRightWindow',
+			'rmtHtdRrWndSt',
+			'sideLightStatus',
+			'sunroofStatus',
+		];
+		for (const key of booleanFields) {
 			const metadata = getVehicleStatusMetadata(key);
-			expect(metadata).to.include({ type: 'boolean', role: 'indicator' });
+			expect(metadata.type).to.equal('boolean');
 			expect(metadata.name.en).to.be.a('string').and.not.empty;
 			expect(metadata.name.de).to.be.a('string').and.not.empty;
+			expect(normalizeVehicleStatusValue(key, 0)).to.equal(false);
+			expect(normalizeVehicleStatusValue(key, 1)).to.equal(true);
 		}
+		expect(getVehicleStatusMetadata('driverDoor').role).to.equal('sensor.door');
+		expect(getVehicleStatusMetadata('driverWindow').role).to.equal('sensor.window');
 		expect(getVehicleStatusMetadata('remoteClimateStatus')).to.include({ type: 'number', role: 'value' });
 	});
 
 	it('assigns units to known measurements', () => {
-		expect(getVehicleStatusMetadata('batteryVoltage')).to.include({ type: 'number', role: 'value', unit: 'V' });
-		expect(getVehicleStatusMetadata('extendedData1')).to.include({ type: 'number', role: 'value', unit: '%' });
-		expect(getVehicleStatusMetadata('gpsAltitude')).to.include({ type: 'number', role: 'value', unit: 'm' });
-		expect(getVehicleStatusMetadata('gpsLatitude')).to.include({ type: 'number', role: 'value', unit: '°' });
+		expect(getVehicleStatusMetadata('batteryVoltage')).to.include({
+			type: 'number',
+			role: 'value.voltage',
+			unit: 'V',
+		});
+		expect(getVehicleStatusMetadata('extendedData1')).to.include({
+			type: 'number',
+			role: 'value.battery',
+			unit: '%',
+		});
+		expect(getVehicleStatusMetadata('gpsAltitude')).to.include({
+			type: 'number',
+			role: 'value.gps.elevation',
+			unit: 'm',
+		});
+		expect(getVehicleStatusMetadata('gpsLatitude')).to.include({
+			type: 'number',
+			role: 'value.gps.latitude',
+			unit: '°',
+		});
 		expect(getVehicleStatusMetadata('fuelLevelPrc').unit).to.equal('%');
 		expect(getVehicleStatusMetadata('interiorTemperature').unit).to.equal('°C');
 		expect(getVehicleStatusMetadata('fuelRange').unit).to.equal('km');
 		expect(getVehicleStatusMetadata('frontLeftTyrePressure').unit).to.equal('bar');
 		expect(getVehicleStatusMetadata('speed').unit).to.equal('km/h');
 		expect(getVehicleStatusMetadata('statusTime')).to.include({ type: 'number', role: 'date' });
+		expect(getVehicleStatusMetadata('interiorTemperature').role).to.equal('value.temperature');
+		expect(getVehicleStatusMetadata('gpsLatitude').role).to.equal('value.gps.latitude');
+		expect(getVehicleStatusMetadata('frontLeftTyrePressure').role).to.equal('value.pressure');
+		expect(getVehicleStatusMetadata('batteryVoltage').role).to.equal('value.voltage');
+		expect(getVehicleStatusMetadata('mileage').role).to.equal('value.distance');
 	});
 
 	it('converts binary numeric status values to booleans', () => {
@@ -56,7 +102,7 @@ describe('getVehicleStatusMetadata', () => {
 	it('leaves unknown measurements unchanged', () => {
 		expect(getVehicleStatusMetadata('frontLeftTyrePressure')).to.include({
 			type: 'number',
-			role: 'value',
+			role: 'value.pressure',
 			unit: 'bar',
 		});
 		expect(normalizeVehicleStatusValue('unscaledField', 42)).to.equal(42);
@@ -72,5 +118,40 @@ describe('getVehicleStatusMetadata', () => {
 		expect(getVehicleStatusMetadata('fuelRange').name.en).to.equal('Fossil fuel range');
 		expect(getVehicleStatusMetadata('speed').name.en).to.equal('Speed');
 		expect(getVehicleStatusMetadata('wheelTyreMonitorStatus').name.en).to.equal('Wheel tyre monitor status');
+	});
+
+	it('localizes every status field present in the exported vehicle data', () => {
+		const exportedFields = [
+			'clstrDspdFuelLvlSgmt',
+			'currentJourneyId',
+			'extendedData1',
+			'extendedData2',
+			'frontLeftSeatHeatLevel',
+			'frontRightSeatHeatLevel',
+			'gpsAltitude',
+			'gpsHdop',
+			'gpsHeading',
+			'gpsLatitude',
+			'gpsLongitude',
+			'gpsSatellites',
+			'lastKeySeen',
+			'mainBeamStatus',
+			'powerMode',
+			'rmtHtdRrWndSt',
+			'steeringWheelHeatFailureReason',
+			'statusTime',
+		];
+		const languages = ['en', 'de', 'ru', 'pt', 'nl', 'fr', 'it', 'es', 'pl', 'uk', 'zh-cn'] as const;
+
+		for (const key of exportedFields) {
+			const name = getVehicleStatusMetadata(key).name;
+			for (const language of languages) {
+				expect(name[language], `${key} (${language})`).to.be.a('string').and.not.empty;
+				expect(name[language], `${key} (${language})`).not.to.equal(key);
+			}
+		}
+		for (const language of languages) {
+			expect(getVehicleStatusMetadata('unknownFutureField').name[language]).to.equal('unknownFutureField');
+		}
 	});
 });
