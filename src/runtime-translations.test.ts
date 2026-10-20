@@ -4,6 +4,10 @@ import { getRuntimeName, supportedLanguages } from './runtime-translations';
 describe('runtime command translations', () => {
 	it('provides localized labels for every exposed command and action', () => {
 		const commandIds = [
+			'info',
+			'backend',
+			'connection',
+			'lastError',
 			'refresh',
 			'commands',
 			'commandGroup_access',

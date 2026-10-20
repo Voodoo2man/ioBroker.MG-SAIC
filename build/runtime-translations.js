@@ -24,6 +24,58 @@ __export(runtime_translations_exports, {
 module.exports = __toCommonJS(runtime_translations_exports);
 const supportedLanguages = ["en", "de", "ru", "pt", "nl", "fr", "it", "es", "pl", "uk", "zh-cn"];
 const runtimeNames = {
+  info: {
+    en: "Information",
+    de: "Informationen",
+    ru: "\u0418\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044F",
+    pt: "Informa\xE7\xF5es",
+    nl: "Informatie",
+    fr: "Informations",
+    it: "Informazioni",
+    es: "Informaci\xF3n",
+    pl: "Informacje",
+    uk: "\u0406\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0456\u044F",
+    "zh-cn": "\u4FE1\u606F"
+  },
+  backend: {
+    en: "Configured region",
+    de: "Konfigurierte Region",
+    ru: "\u041D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u043D\u044B\u0439 \u0440\u0435\u0433\u0438\u043E\u043D",
+    pt: "Regi\xE3o configurada",
+    nl: "Geconfigureerde regio",
+    fr: "R\xE9gion configur\xE9e",
+    it: "Regione configurata",
+    es: "Regi\xF3n configurada",
+    pl: "Skonfigurowany region",
+    uk: "\u041D\u0430\u043B\u0430\u0448\u0442\u043E\u0432\u0430\u043D\u0438\u0439 \u0440\u0435\u0433\u0456\u043E\u043D",
+    "zh-cn": "\u5DF2\u914D\u7F6E\u533A\u57DF"
+  },
+  connection: {
+    en: "SAIC cloud connection",
+    de: "SAIC-Cloud-Verbindung",
+    ru: "\u041F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0435 \u043A \u043E\u0431\u043B\u0430\u043A\u0443 SAIC",
+    pt: "Conex\xE3o \xE0 nuvem SAIC",
+    nl: "SAIC-cloudverbinding",
+    fr: "Connexion au cloud SAIC",
+    it: "Connessione al cloud SAIC",
+    es: "Conexi\xF3n a la nube de SAIC",
+    pl: "Po\u0142\u0105czenie z chmur\u0105 SAIC",
+    uk: "\u0417\u2019\u0454\u0434\u043D\u0430\u043D\u043D\u044F \u0437 \u0445\u043C\u0430\u0440\u043E\u044E SAIC",
+    "zh-cn": "SAIC \u4E91\u8FDE\u63A5"
+  },
+  lastError: {
+    en: "Last initialization error",
+    de: "Letzter Initialisierungsfehler",
+    ru: "\u041F\u043E\u0441\u043B\u0435\u0434\u043D\u044F\u044F \u043E\u0448\u0438\u0431\u043A\u0430 \u0438\u043D\u0438\u0446\u0438\u0430\u043B\u0438\u0437\u0430\u0446\u0438\u0438",
+    pt: "\xDAltimo erro de inicializa\xE7\xE3o",
+    nl: "Laatste initialisatiefout",
+    fr: "Derni\xE8re erreur d\u2019initialisation",
+    it: "Ultimo errore di inizializzazione",
+    es: "\xDAltimo error de inicializaci\xF3n",
+    pl: "Ostatni b\u0142\u0105d inicjalizacji",
+    uk: "\u041E\u0441\u0442\u0430\u043D\u043D\u044F \u043F\u043E\u043C\u0438\u043B\u043A\u0430 \u0456\u043D\u0456\u0446\u0456\u0430\u043B\u0456\u0437\u0430\u0446\u0456\u0457",
+    "zh-cn": "\u4E0A\u6B21\u521D\u59CB\u5316\u9519\u8BEF"
+  },
   refresh: {
     en: "Refresh vehicle status",
     de: "Fahrzeugstatus aktualisieren",

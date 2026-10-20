@@ -124,6 +124,10 @@ class MgSaic extends utils.Adapter {
       return;
     }
     const config = this.config;
+    await this.extendObjectAsync("info", { common: { name: (0, import_runtime_translations.getRuntimeName)("info") } });
+    await this.extendObjectAsync("info.backend", { common: { name: (0, import_runtime_translations.getRuntimeName)("backend") } });
+    await this.extendObjectAsync("info.connection", { common: { name: (0, import_runtime_translations.getRuntimeName)("connection") } });
+    await this.extendObjectAsync("info.lastError", { common: { name: (0, import_runtime_translations.getRuntimeName)("lastError") } });
     await this.setObjectNotExistsAsync("commands.refresh", {
       type: "state",
       common: {
