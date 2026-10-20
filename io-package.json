@@ -1,143 +1,161 @@
 {
-	"common": {
-		"name": "mg-saic",
-		"version": "0.0.1",
-		"news": {
-			"0.0.1": {
-				"en": "Added the initial TypeScript adapter foundation and secure account configuration.",
-				"de": "Das initiale TypeScript-Adaptergerüst und eine sichere Kontokonfiguration wurden hinzugefügt.",
-				"ru": "Добавлены основа адаптера на TypeScript и безопасная конфигурация учетной записи.",
-				"pt": "Foi adicionada a base inicial do adaptador TypeScript e a configuração segura da conta.",
-				"nl": "De initiële TypeScript-adapterbasis en veilige accountconfiguratie zijn toegevoegd.",
-				"fr": "La base initiale de l'adaptateur TypeScript et la configuration sécurisée du compte ont été ajoutées.",
-				"it": "Sono state aggiunte la base iniziale dell'adattatore TypeScript e la configurazione sicura dell'account.",
-				"es": "Se añadieron la base inicial del adaptador TypeScript y la configuración segura de la cuenta.",
-				"pl": "Dodano początkową podstawę adaptera TypeScript i bezpieczną konfigurację konta.",
-				"uk": "Додано початкову основу адаптера TypeScript і безпечну конфігурацію облікового запису.",
-				"zh-cn": "已添加 TypeScript 适配器基础结构和安全账户配置。"
-			}
-		},
-		"titleLang": {
-			"en": "MG/SAIC",
-			"de": "MG/SAIC",
-			"ru": "МГ/САИК",
-			"pt": "MG/SAIC",
-			"nl": "MG/SAIC",
-			"fr": "MG/SAIC",
-			"it": "MG/SAIC",
-			"es": "MG/SAIC",
-			"pl": "MG/SAIC",
-			"uk": "MG/SAIC",
-			"zh-cn": "名爵/上汽"
-		},
-		"desc": {
-			"en": "Connect MG and SAIC vehicles to ioBroker through regional iSmart cloud APIs",
-			"de": "Verbinden Sie MG- und SAIC-Fahrzeuge über regionale iSmart-Cloud-APIs mit ioBroker",
-			"ru": "Подключите автомобили MG и SAIC к ioBroker через региональные облачные API iSmart.",
-			"pt": "Conecte veículos MG e SAIC ao ioBroker por meio de APIs de nuvem iSmart regionais",
-			"nl": "Verbind MG- en SAIC-voertuigen met ioBroker via regionale iSmart-cloud-API's",
-			"fr": "Connectez les véhicules MG et SAIC à ioBroker via les API cloud iSmart régionales",
-			"it": "Connetti i veicoli MG e SAIC a ioBroker tramite le API cloud iSmart regionali",
-			"es": "Conecte vehículos MG y SAIC a ioBroker a través de las API regionales de nube iSmart",
-			"pl": "Połącz pojazdy MG i SAIC z ioBrokerem za pośrednictwem regionalnych interfejsów API chmury iSmart",
-			"uk": "Підключіть транспортні засоби MG та SAIC до ioBroker через регіональні хмарні API iSmart",
-			"zh-cn": "通过区域iSmart云API将名爵和上汽车辆连接到ioBroker"
-		},
-		"authors": [
-			"Voodoo2man <Voodoo2man@outlook.de>"
-		],
-		"keywords": [
-			"MG",
-			"SAIC",
-			"iSmart",
-			"vehicle",
-			"cloud"
-		],
-		"licenseInformation": {
-			"type": "free",
-			"license": "MIT"
-		},
-		"platform": "Javascript/Node.js",
-		"icon": "mg-saic.png",
-		"enabled": true,
-		"extIcon": "https://raw.githubusercontent.com/Voodoo2man/ioBroker.mg-saic/main/admin/mg-saic.png",
-		"readme": "https://github.com/Voodoo2man/ioBroker.mg-saic/blob/main/README.md",
-		"loglevel": "info",
-		"tier": 3,
-		"mode": "daemon",
-		"type": "vehicle",
-		"compact": true,
-		"connectionType": "cloud",
-		"dataSource": "poll",
-		"adminUI": {
-			"config": "json"
-		},
-		"dependencies": [
-			{
-				"js-controller": ">=6.0.11"
-			}
-		],
-		"globalDependencies": [
-			{
-				"admin": ">=7.6.20"
-			}
-		]
-	},
-	"native": {
-		"region": "EU",
-		"pollIntervalSeconds": 1800,
-		"accountType": "email",
-		"accountIdentifier": "",
-		"phoneCountryCode": "",
-		"password": ""
-	},
-	"objects": [],
-	"instanceObjects": [
-		{
-			"_id": "info",
-			"type": "channel",
-			"common": { "name": "Information" },
-			"native": {}
-		},
-		{
-			"_id": "info.connection",
-			"type": "state",
-			"common": {
-				"name": "SAIC cloud connection",
-				"type": "boolean",
-				"role": "indicator.connected",
-				"read": true,
-				"write": false,
-				"def": false
-			},
-			"native": {}
-		},
-		{
-			"_id": "info.lastError",
-			"type": "state",
-			"common": {
-				"name": "Last initialization error",
-				"type": "string",
-				"role": "text",
-				"read": true,
-				"write": false
-			},
-			"native": {}
-		},
-		{
-			"_id": "info.backend",
-			"type": "state",
-			"common": {
-				"name": "Configured region",
-				"type": "string",
-				"role": "text",
-				"read": true,
-				"write": false
-			},
-			"native": {}
-		}
-	]
-	,
-	"encryptedNative": ["password"],
-	"protectedNative": ["password"]
+  "common": {
+    "name": "mg-saic",
+    "version": "0.0.2",
+    "news": {
+      "0.0.2": {
+        "en": "Added regional iSmart account setup, vehicle status, and supported remote controls.",
+        "de": "Regionales iSmart-Konto, Fahrzeugstatus und unterstützte Fernsteuerungen hinzugefügt.",
+        "ru": "Добавлена региональная настройка учетной записи iSmart, состояние автомобиля и поддерживаемые пульты дистанционного управления.",
+        "pt": "Adição da conta iSmart regional, status do veículo e controles remotos compatíveis.",
+        "nl": "Regionale iSmart-accountconfiguratie, voertuigstatus en ondersteunde afstandsbedieningen toegevoegd.",
+        "fr": "Ajout du compte iSmart régional, de l'état du véhicule et des télécommandes compatibles.",
+        "it": "Aggiunti account iSmart regionali, stato del veicolo e telecomandi supportati.",
+        "es": "Se añadió la configuración regional de la cuenta iSmart, el estado del vehículo y los mandos a distancia.",
+        "pl": "Dodano regionalną konfigurację konta iSmart, status pojazdu i obsługiwane zdalne sterowanie.",
+        "uk": "Додано регіональне налаштування облікового запису iSmart, стан транспортного засобу та підтримувані пульти дистанційного керування.",
+        "zh-cn": "添加了区域 iSmart 账户设置、车辆状态和支持的远程控制。"
+      },
+      "0.0.1": {
+        "en": "Added the initial TypeScript adapter foundation and secure account configuration.",
+        "de": "Das initiale TypeScript-Adaptergerüst und eine sichere Kontokonfiguration wurden hinzugefügt.",
+        "ru": "Добавлены основа адаптера на TypeScript и безопасная конфигурация учетной записи.",
+        "pt": "Foi adicionada a base inicial do adaptador TypeScript e a configuração segura da conta.",
+        "nl": "De initiële TypeScript-adapterbasis en veilige accountconfiguratie zijn toegevoegd.",
+        "fr": "La base initiale de l'adaptateur TypeScript et la configuration sécurisée du compte ont été ajoutées.",
+        "it": "Sono state aggiunte la base iniziale dell'adattatore TypeScript e la configurazione sicura dell'account.",
+        "es": "Se añadieron la base inicial del adaptador TypeScript y la configuración segura de la cuenta.",
+        "pl": "Dodano początkową podstawę adaptera TypeScript i bezpieczną konfigurację konta.",
+        "uk": "Додано початкову основу адаптера TypeScript і безпечну конфігурацію облікового запису.",
+        "zh-cn": "已添加 TypeScript 适配器基础结构和安全账户配置。"
+      }
+    },
+    "titleLang": {
+      "en": "MG/SAIC",
+      "de": "MG/SAIC",
+      "ru": "МГ/САИК",
+      "pt": "MG/SAIC",
+      "nl": "MG/SAIC",
+      "fr": "MG/SAIC",
+      "it": "MG/SAIC",
+      "es": "MG/SAIC",
+      "pl": "MG/SAIC",
+      "uk": "MG/SAIC",
+      "zh-cn": "名爵/上汽"
+    },
+    "desc": {
+      "en": "Connect MG and SAIC vehicles to ioBroker through regional iSmart cloud APIs",
+      "de": "Verbinden Sie MG- und SAIC-Fahrzeuge über regionale iSmart-Cloud-APIs mit ioBroker",
+      "ru": "Подключите автомобили MG и SAIC к ioBroker через региональные облачные API iSmart.",
+      "pt": "Conecte veículos MG e SAIC ao ioBroker por meio de APIs de nuvem iSmart regionais",
+      "nl": "Verbind MG- en SAIC-voertuigen met ioBroker via regionale iSmart-cloud-API's",
+      "fr": "Connectez les véhicules MG et SAIC à ioBroker via les API cloud iSmart régionales",
+      "it": "Connetti i veicoli MG e SAIC a ioBroker tramite le API cloud iSmart regionali",
+      "es": "Conecte vehículos MG y SAIC a ioBroker a través de las API regionales de nube iSmart",
+      "pl": "Połącz pojazdy MG i SAIC z ioBrokerem za pośrednictwem regionalnych interfejsów API chmury iSmart",
+      "uk": "Підключіть транспортні засоби MG та SAIC до ioBroker через регіональні хмарні API iSmart",
+      "zh-cn": "通过区域iSmart云API将名爵和上汽车辆连接到ioBroker"
+    },
+    "authors": [
+      "Voodoo2man <Voodoo2man@outlook.de>"
+    ],
+    "keywords": [
+      "MG",
+      "SAIC",
+      "iSmart",
+      "vehicle",
+      "cloud"
+    ],
+    "licenseInformation": {
+      "type": "free",
+      "license": "MIT"
+    },
+    "platform": "Javascript/Node.js",
+    "icon": "mg-saic.png",
+    "enabled": true,
+    "extIcon": "https://raw.githubusercontent.com/Voodoo2man/ioBroker.mg-saic/main/admin/mg-saic.png",
+    "readme": "https://github.com/Voodoo2man/ioBroker.mg-saic/blob/main/README.md",
+    "loglevel": "info",
+    "tier": 3,
+    "mode": "daemon",
+    "type": "vehicle",
+    "compact": true,
+    "connectionType": "cloud",
+    "dataSource": "poll",
+    "adminUI": {
+      "config": "json"
+    },
+    "dependencies": [
+      {
+        "js-controller": ">=6.0.11"
+      }
+    ],
+    "globalDependencies": [
+      {
+        "admin": ">=7.6.20"
+      }
+    ]
+  },
+  "native": {
+    "region": "EU",
+    "pollIntervalSeconds": 1800,
+    "accountType": "email",
+    "accountIdentifier": "",
+    "phoneCountryCode": "",
+    "password": ""
+  },
+  "objects": [],
+  "instanceObjects": [
+    {
+      "_id": "info",
+      "type": "channel",
+      "common": {
+        "name": "Information"
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.connection",
+      "type": "state",
+      "common": {
+        "name": "SAIC cloud connection",
+        "type": "boolean",
+        "role": "indicator.connected",
+        "read": true,
+        "write": false,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.lastError",
+      "type": "state",
+      "common": {
+        "name": "Last initialization error",
+        "type": "string",
+        "role": "text",
+        "read": true,
+        "write": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.backend",
+      "type": "state",
+      "common": {
+        "name": "Configured region",
+        "type": "string",
+        "role": "text",
+        "read": true,
+        "write": false
+      },
+      "native": {}
+    }
+  ],
+  "encryptedNative": [
+    "password"
+  ],
+  "protectedNative": [
+    "password"
+  ]
 }
