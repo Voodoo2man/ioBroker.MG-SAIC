@@ -33,6 +33,10 @@ The adapter is not yet available in the ioBroker adapter catalog. It can be inst
 
 ## Changelog
 
+### **WORK IN PROGRESS**
+
+- (Voodoo2man) Added regional iSmart account setup, vehicle status, and supported remote controls.
+
 ### 0.0.1 (2026-10-20)
 
 - (Voodoo2man) Initial Version
