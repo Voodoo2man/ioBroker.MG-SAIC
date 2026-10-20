@@ -83,6 +83,7 @@ class MgSaic extends utils.Adapter {
 	private accessTokenExpiresAt = 0;
 	private vehicles: SaicVehicle[] = [];
 	private readonly lastStatusTimes = new Map<string, number>();
+	private readonly lastCanonicalStatusTimes = new Map<string, number>();
 	private readonly vehicleCommandsInProgress = new Set<string>();
 
 	private async onReady(): Promise<void> {
@@ -305,6 +306,7 @@ class MgSaic extends utils.Adapter {
 									'cachedStatus',
 									'SAIC cached status',
 								);
+								await this.createCanonicalVehicleStatusObjects(vehicle.vin, cachedStatus, 'cached');
 							} catch (error) {
 								const writeDetails =
 									error instanceof Error ? error.message : 'Unknown state write error';
@@ -326,8 +328,17 @@ class MgSaic extends utils.Adapter {
 							`Received live status for ${vehicle.vin}: ${Object.keys(status.basicVehicleStatus).length} basic fields, statusTime ${status.statusTime ?? 'missing'}`,
 						);
 						await this.createVehicleStatusObjects(vehicle.vin, status);
+						await this.createCanonicalVehicleStatusObjects(vehicle.vin, status, 'live');
 						if (!this.stopping && status.statusTime !== undefined) {
 							this.lastStatusTimes.set(vehicle.vin, status.statusTime);
+							if (
+								isVehicleStatusNotOlder(
+									status.statusTime,
+									this.lastCanonicalStatusTimes.get(vehicle.vin),
+								)
+							) {
+								this.lastCanonicalStatusTimes.set(vehicle.vin, status.statusTime);
+							}
 						}
 						this.log.debug(`Created/updated live status objects for ${vehicle.vin}`);
 					} catch (error) {
@@ -600,6 +611,33 @@ class MgSaic extends utils.Adapter {
 				return;
 			}
 			await this.delObjectAsync(`${statusId}.${key}`);
+		}
+	}
+
+	private async createCanonicalVehicleStatusObjects(
+		vin: string,
+		status: SaicVehicleStatus,
+		source: 'live' | 'cached',
+	): Promise<void> {
+		if (this.stopping || !isVehicleStatusNotOlder(status.statusTime, this.lastCanonicalStatusTimes.get(vin))) {
+			return;
+		}
+		await this.createVehicleStatusObjects(vin, status, 'canonicalStatus', 'Canonical status');
+		if (this.stopping) {
+			return;
+		}
+		const sourceId = `vehicles.${vin}.canonicalStatus.source`;
+		await this.setObjectNotExistsAsync(sourceId, {
+			type: 'state',
+			common: { name: 'Status source', type: 'string', role: 'text', read: true, write: false },
+			native: {},
+		});
+		if (this.stopping) {
+			return;
+		}
+		await this.setStateAsync(sourceId, { val: source, ack: true });
+		if (status.statusTime !== undefined) {
+			this.lastCanonicalStatusTimes.set(vin, status.statusTime);
 		}
 	}
 

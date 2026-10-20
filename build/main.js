@@ -80,6 +80,7 @@ class MgSaic extends utils.Adapter {
   accessTokenExpiresAt = 0;
   vehicles = [];
   lastStatusTimes = /* @__PURE__ */ new Map();
+  lastCanonicalStatusTimes = /* @__PURE__ */ new Map();
   vehicleCommandsInProgress = /* @__PURE__ */ new Set();
   async onReady() {
     var _a, _b, _c, _d, _e;
@@ -292,6 +293,7 @@ class MgSaic extends utils.Adapter {
                   "cachedStatus",
                   "SAIC cached status"
                 );
+                await this.createCanonicalVehicleStatusObjects(vehicle.vin, cachedStatus, "cached");
               } catch (error2) {
                 const writeDetails = error2 instanceof Error ? error2.message : "Unknown state write error";
                 statusErrors.push(`Could not write cached status for ${vehicle.vin}: ${writeDetails}`);
@@ -312,8 +314,15 @@ class MgSaic extends utils.Adapter {
               `Received live status for ${vehicle.vin}: ${Object.keys(status.basicVehicleStatus).length} basic fields, statusTime ${(_a = status.statusTime) != null ? _a : "missing"}`
             );
             await this.createVehicleStatusObjects(vehicle.vin, status);
+            await this.createCanonicalVehicleStatusObjects(vehicle.vin, status, "live");
             if (!this.stopping && status.statusTime !== void 0) {
               this.lastStatusTimes.set(vehicle.vin, status.statusTime);
+              if ((0, import_saic_client.isVehicleStatusNotOlder)(
+                status.statusTime,
+                this.lastCanonicalStatusTimes.get(vehicle.vin)
+              )) {
+                this.lastCanonicalStatusTimes.set(vehicle.vin, status.statusTime);
+              }
             }
             this.log.debug(`Created/updated live status objects for ${vehicle.vin}`);
           } catch (error) {
@@ -570,6 +579,28 @@ class MgSaic extends utils.Adapter {
         return;
       }
       await this.delObjectAsync(`${statusId}.${key}`);
+    }
+  }
+  async createCanonicalVehicleStatusObjects(vin, status, source) {
+    if (this.stopping || !(0, import_saic_client.isVehicleStatusNotOlder)(status.statusTime, this.lastCanonicalStatusTimes.get(vin))) {
+      return;
+    }
+    await this.createVehicleStatusObjects(vin, status, "canonicalStatus", "Canonical status");
+    if (this.stopping) {
+      return;
+    }
+    const sourceId = `vehicles.${vin}.canonicalStatus.source`;
+    await this.setObjectNotExistsAsync(sourceId, {
+      type: "state",
+      common: { name: "Status source", type: "string", role: "text", read: true, write: false },
+      native: {}
+    });
+    if (this.stopping) {
+      return;
+    }
+    await this.setStateAsync(sourceId, { val: source, ack: true });
+    if (status.statusTime !== void 0) {
+      this.lastCanonicalStatusTimes.set(vin, status.statusTime);
     }
   }
   async createVehicleObjects(vehicle) {
