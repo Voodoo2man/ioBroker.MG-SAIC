@@ -1052,11 +1052,6 @@ export class SaicApiClient {
 			if (returnCode === 401 || returnCode === 403) {
 				throw new SaicHttpError(`SAIC rejected vehicle status with code ${returnCode}`, returnCode);
 			}
-			if (returnCode === 4) {
-				throw new SaicRemoteInstructionError(
-					envelope.message || 'SAIC could not execute the remote vehicle request',
-				);
-			}
 			if (
 				useEventId &&
 				![2, 3, 7].includes(returnCode) &&
@@ -1072,6 +1067,11 @@ export class SaicApiClient {
 					eventId = nextEventId;
 				}
 				continue;
+			}
+			if (returnCode === 4) {
+				throw new SaicRemoteInstructionError(
+					envelope.message || 'SAIC could not execute the remote vehicle request',
+				);
 			}
 			if (useEventId && returnCode === 0 && envelope.data === undefined && this.monotonicNow() >= deadline) {
 				throw new RetryableVehicleStatusError('SAIC vehicle status timed out while waiting for vehicle data');

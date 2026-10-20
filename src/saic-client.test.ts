@@ -884,17 +884,44 @@ describe('SaicApiClient vehicle status', () => {
 		}
 	});
 
-	it('does not event-poll SAIC code 4 after a remote instruction failure', async () => {
+	it('continues polling an event after SAIC code 4 while the event is pending', async () => {
+		let callCount = 0;
+		const eventIds: string[] = [];
+		const waitDurations: number[] = [];
+		const client = new SaicApiClient(
+			(_input, init) => {
+				callCount += 1;
+				eventIds.push(new Headers(init?.headers).get('event-id') ?? 'none');
+				if (callCount === 1) {
+					return Promise.resolve(
+						new Response('{"code":4,"message":"The vehicle is processing the request."}', {
+							headers: { 'event-id': '573135718' },
+						}),
+					);
+				}
+				return Promise.resolve(new Response('{"code":0,"data":{"basicVehicleStatus":{"lockStatus":1}}}'));
+			},
+			Date.now,
+			milliseconds => {
+				waitDurations.push(milliseconds);
+				return Promise.resolve();
+			},
+		);
+
+		expect(await client.getVehicleStatus(options, 'test-access-token', 'LSJWH4095RN166487')).to.deep.equal({
+			basicVehicleStatus: { lockStatus: 1 },
+		});
+		expect(callCount).to.equal(2);
+		expect(eventIds).to.deep.equal(['0', '573135718']);
+		expect(waitDurations).to.deep.equal([3_000]);
+	});
+
+	it('classifies SAIC code 4 without a pending event as a remote instruction failure', async () => {
 		let callCount = 0;
 		const client = new SaicApiClient(
 			() => {
 				callCount += 1;
-				return Promise.resolve(
-					new Response(
-						'{"code":4,"message":"The remote control instruction failed, please try again later."}',
-						{ headers: { 'event-id': '573135718' } },
-					),
-				);
+				return Promise.resolve(new Response('{"code":4,"message":"The remote control instruction failed."}'));
 			},
 			Date.now,
 			() => Promise.resolve(),
@@ -904,7 +931,8 @@ describe('SaicApiClient vehicle status', () => {
 			await client.getVehicleStatus(options, 'test-access-token', 'LSJWH4095RN166487');
 			expect.fail('Expected SAIC remote instruction failure');
 		} catch (error) {
-			expect((error as Error).message).to.equal('The remote control instruction failed, please try again later.');
+			expect(error).to.be.instanceOf(SaicRemoteInstructionError);
+			expect((error as Error).message).to.equal('The remote control instruction failed.');
 		}
 		expect(callCount).to.equal(1);
 	});
