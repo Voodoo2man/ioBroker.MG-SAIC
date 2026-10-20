@@ -232,6 +232,19 @@ const runtimeNames = {
     uk: "\u0414\u0436\u0435\u0440\u0435\u043B\u043E \u0441\u0442\u0430\u0442\u0443\u0441\u0443",
     "zh-cn": "\u72B6\u6001\u6765\u6E90"
   },
+  statusSourceTimestamp: {
+    en: "Status timestamp",
+    de: "Zeitstempel des Status",
+    ru: "\u0412\u0440\u0435\u043C\u044F \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u0438\u044F \u0441\u0442\u0430\u0442\u0443\u0441\u0430",
+    pt: "Data e hora do estado",
+    nl: "Tijdstempel van status",
+    fr: "Horodatage du statut",
+    it: "Data e ora dello stato",
+    es: "Fecha y hora del estado",
+    pl: "Znacznik czasu statusu",
+    uk: "\u0427\u0430\u0441\u043E\u0432\u0430 \u043C\u0456\u0442\u043A\u0430 \u0441\u0442\u0430\u0442\u0443\u0441\u0443",
+    "zh-cn": "\u72B6\u6001\u65F6\u95F4\u6233"
+  },
   driving: {
     en: "Driving",
     de: "Fahrbetrieb",

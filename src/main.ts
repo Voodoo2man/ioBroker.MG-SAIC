@@ -750,6 +750,22 @@ class MgSaic extends utils.Adapter {
 		}
 		await this.setStateAsync(sourceId, { val: source, ack: true });
 		if (status.statusTime !== undefined) {
+			const sourceTimestampId = `vehicles.${vin}.status.sourceTimestamp`;
+			await this.setObjectNotExistsAsync(sourceTimestampId, {
+				type: 'state',
+				common: {
+					name: getRuntimeName('statusSourceTimestamp'),
+					type: 'number',
+					role: 'date',
+					read: true,
+					write: false,
+				},
+				native: {},
+			});
+			await this.extendObjectAsync(sourceTimestampId, {
+				common: { name: getRuntimeName('statusSourceTimestamp') },
+			});
+			await this.setStateAsync(sourceTimestampId, { val: status.statusTime * 1000, ack: true });
 			this.lastCanonicalStatusTimes.set(vin, status.statusTime);
 		}
 	}

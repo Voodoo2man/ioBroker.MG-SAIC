@@ -41,6 +41,7 @@ describe('runtime command translations', () => {
 			'liveStatus',
 			'cachedStatus',
 			'statusSource',
+			'statusSourceTimestamp',
 			'driving',
 			'access',
 			'climate',
