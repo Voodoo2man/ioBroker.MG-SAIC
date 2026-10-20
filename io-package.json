@@ -15,19 +15,6 @@
         "pl": "Dodano regionalną konfigurację konta iSmart, status pojazdu i obsługiwane zdalne sterowanie.",
         "uk": "Додано регіональне налаштування облікового запису iSmart, стан транспортного засобу та підтримувані пульти дистанційного керування.",
         "zh-cn": "添加了区域 iSmart 账户设置、车辆状态和支持的远程控制。"
-      },
-      "0.0.1": {
-        "en": "Added the initial TypeScript adapter foundation and secure account configuration.",
-        "de": "Das initiale TypeScript-Adaptergerüst und eine sichere Kontokonfiguration wurden hinzugefügt.",
-        "ru": "Добавлены основа адаптера на TypeScript и безопасная конфигурация учетной записи.",
-        "pt": "Foi adicionada a base inicial do adaptador TypeScript e a configuração segura da conta.",
-        "nl": "De initiële TypeScript-adapterbasis en veilige accountconfiguratie zijn toegevoegd.",
-        "fr": "La base initiale de l'adaptateur TypeScript et la configuration sécurisée du compte ont été ajoutées.",
-        "it": "Sono state aggiunte la base iniziale dell'adattatore TypeScript e la configurazione sicura dell'account.",
-        "es": "Se añadieron la base inicial del adaptador TypeScript y la configuración segura de la cuenta.",
-        "pl": "Dodano początkową podstawę adaptera TypeScript i bezpieczną konfigurację konta.",
-        "uk": "Додано початкову основу адаптера TypeScript і безпечну конфігурацію облікового запису.",
-        "zh-cn": "已添加 TypeScript 适配器基础结构和安全账户配置。"
       }
     },
     "titleLang": {
