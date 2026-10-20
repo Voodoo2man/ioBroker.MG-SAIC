@@ -978,10 +978,11 @@ class MgSaic extends utils.Adapter {
 				continue;
 			}
 			const isBoolean = typeof value === 'boolean';
+			const name = getRuntimeName(key);
 			await this.setObjectNotExistsAsync(`${deviceId}.${key}`, {
 				type: 'state',
 				common: {
-					name: key,
+					name,
 					type: isBoolean ? 'boolean' : 'string',
 					role: isBoolean ? 'indicator' : key === 'vin' ? 'text' : 'info.name',
 					read: true,
@@ -989,6 +990,7 @@ class MgSaic extends utils.Adapter {
 				},
 				native: {},
 			});
+			await this.extendObjectAsync(`${deviceId}.${key}`, { common: { name } });
 			if (this.stopping) {
 				return;
 			}
