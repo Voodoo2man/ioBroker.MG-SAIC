@@ -784,12 +784,13 @@ class MgSaic extends utils.Adapter {
 		await this.extendObjectAsync(commandsId, { common: { name: getRuntimeName('commands') } });
 		for (const group of ['access', 'climate', 'heating', 'charging', 'schedules', 'vehicle']) {
 			const groupId = `${commandsId}.${group}`;
+			const groupName = getRuntimeName(`commandGroup_${group}`);
 			await this.setObjectNotExistsAsync(groupId, {
 				type: 'channel',
-				common: { name: getRuntimeName(group) },
+				common: { name: groupName },
 				native: {},
 			});
-			await this.extendObjectAsync(groupId, { common: { name: getRuntimeName(group) } });
+			await this.extendObjectAsync(groupId, { common: { name: groupName } });
 		}
 		for (const command of vehicleCommands) {
 			const commandId = vehicleCommandPath(vehicle.vin, command.id);
