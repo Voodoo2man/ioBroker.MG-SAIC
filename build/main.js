@@ -58,6 +58,7 @@ const settingActions = [
   { id: "chargingScheduleApply", name: "Apply charging schedule" },
   { id: "batteryHeatingScheduleApply", name: "Apply battery heating schedule" }
 ];
+const EXPOSE_SOURCE_STATUS_DATAPOINTS = false;
 class MgSaic extends utils.Adapter {
   constructor(options = {}) {
     super({
@@ -154,6 +155,10 @@ class MgSaic extends utils.Adapter {
           return;
         }
         await this.createVehicleObjects(vehicle);
+        if (!EXPOSE_SOURCE_STATUS_DATAPOINTS) {
+          await this.delObjectAsync(`vehicles.${vehicle.vin}.cachedStatus`, { recursive: true });
+        }
+        await this.delObjectAsync(`vehicles.${vehicle.vin}.canonicalStatus`, { recursive: true });
       }
       await this.setState("info.connection", true, true);
       this.log.info(`SAIC account authenticated; discovered ${this.vehicles.length} vehicle(s).`);
@@ -287,12 +292,14 @@ class MgSaic extends utils.Adapter {
                 continue;
               }
               try {
-                await this.createVehicleStatusObjects(
-                  vehicle.vin,
-                  cachedStatus,
-                  "cachedStatus",
-                  "SAIC cached status"
-                );
+                if (EXPOSE_SOURCE_STATUS_DATAPOINTS) {
+                  await this.createVehicleStatusObjects(
+                    vehicle.vin,
+                    cachedStatus,
+                    "cachedStatus",
+                    "SAIC cached status"
+                  );
+                }
                 await this.createCanonicalVehicleStatusObjects(vehicle.vin, cachedStatus, "cached");
               } catch (error2) {
                 const writeDetails = error2 instanceof Error ? error2.message : "Unknown state write error";
@@ -313,7 +320,9 @@ class MgSaic extends utils.Adapter {
             this.log.debug(
               `Received live status for ${vehicle.vin}: ${Object.keys(status.basicVehicleStatus).length} basic fields, statusTime ${(_a = status.statusTime) != null ? _a : "missing"}`
             );
-            await this.createVehicleStatusObjects(vehicle.vin, status);
+            if (EXPOSE_SOURCE_STATUS_DATAPOINTS) {
+              await this.createVehicleStatusObjects(vehicle.vin, status, "liveStatus", "Live status");
+            }
             await this.createCanonicalVehicleStatusObjects(vehicle.vin, status, "live");
             if (!this.stopping && status.statusTime !== void 0) {
               this.lastStatusTimes.set(vehicle.vin, status.statusTime);
@@ -517,6 +526,9 @@ class MgSaic extends utils.Adapter {
     if (this.stopping) {
       return;
     }
+    if (!EXPOSE_SOURCE_STATUS_DATAPOINTS && (channel === "liveStatus" || channel === "cachedStatus")) {
+      return;
+    }
     const statusId = `vehicles.${vin}.${channel}`;
     await this.setObjectNotExistsAsync(statusId, {
       type: "channel",
@@ -585,11 +597,11 @@ class MgSaic extends utils.Adapter {
     if (this.stopping || !(0, import_saic_client.isVehicleStatusNotOlder)(status.statusTime, this.lastCanonicalStatusTimes.get(vin))) {
       return;
     }
-    await this.createVehicleStatusObjects(vin, status, "canonicalStatus", "Canonical status");
+    await this.createVehicleStatusObjects(vin, status, "status", "Current status");
     if (this.stopping) {
       return;
     }
-    const sourceId = `vehicles.${vin}.canonicalStatus.source`;
+    const sourceId = `vehicles.${vin}.status.source`;
     await this.setObjectNotExistsAsync(sourceId, {
       type: "state",
       common: { name: "Status source", type: "string", role: "text", read: true, write: false },
