@@ -685,10 +685,10 @@ class MgSaic extends utils.Adapter {
 			const groupId = `${statusId}.${group}`;
 			await this.setObjectNotExistsAsync(groupId, {
 				type: 'channel',
-				common: { name: getRuntimeName(`commandGroup_${group}`) },
+				common: { name: getRuntimeName(group) },
 				native: {},
 			});
-			await this.extendObjectAsync(groupId, { common: { name: getRuntimeName(`commandGroup_${group}`) } });
+			await this.extendObjectAsync(groupId, { common: { name: getRuntimeName(group) } });
 			if (this.stopping) {
 				return;
 			}

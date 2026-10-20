@@ -1,7 +1,28 @@
 import { expect } from 'chai';
 import { getRuntimeName, supportedLanguages } from './runtime-translations';
+import type { VehicleStatusGroup } from './status-metadata';
 
 describe('runtime command translations', () => {
+	it('provides separate translation keys for status and command groups', () => {
+		const statusGroups: VehicleStatusGroup[] = [
+			'driving',
+			'access',
+			'climate',
+			'tires',
+			'lighting',
+			'energy',
+			'general',
+		];
+		const commandGroups = ['access', 'climate', 'heating', 'charging', 'schedules', 'vehicle'];
+
+		for (const group of statusGroups) {
+			expect(getRuntimeName(group), `status group ${group}`).to.be.an('object');
+		}
+		for (const group of commandGroups) {
+			expect(getRuntimeName(`commandGroup_${group}`), `command group ${group}`).to.be.an('object');
+		}
+	});
+
 	it('provides localized labels for every exposed command and action', () => {
 		const commandIds = [
 			'info',
