@@ -176,7 +176,23 @@ class MgSaic extends utils.Adapter {
 		}
 
 		try {
-			this.client = new SaicApiClient(undefined, Date.now, undefined, message => this.log.debug(message));
+			this.client = new SaicApiClient(
+				undefined,
+				Date.now,
+				undefined,
+				message => this.log.debug(message),
+				undefined,
+				{
+					setTimeout: (callback, milliseconds) => {
+						const timer = this.setTimeout(callback, milliseconds);
+						return () => {
+							if (timer !== undefined) {
+								this.clearTimeout(timer);
+							}
+						};
+					},
+				},
+			);
 			this.loginOptions = {
 				...region,
 				accountType: config.accountType as 'email' | 'phone',

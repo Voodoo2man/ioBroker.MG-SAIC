@@ -734,6 +734,33 @@ describe('SaicApiClient vehicle status', () => {
 		expect(debugMessages.join('\n')).not.to.contain('142');
 	});
 
+	it('uses injected timer functions for HTTP request timeouts', async () => {
+		let timeoutCreated = false;
+		let timeoutCleared = false;
+		const client = new SaicApiClient(
+			() => Promise.resolve(new Response('{"code":0,"data":{"basicVehicleStatus":{"lockStatus":1}}}')),
+			Date.now,
+			undefined,
+			undefined,
+			undefined,
+			{
+				setTimeout: (callback, milliseconds) => {
+					timeoutCreated = true;
+					const timer = setTimeout(callback, milliseconds);
+					return () => {
+						timeoutCleared = true;
+						clearTimeout(timer);
+					};
+				},
+			},
+		);
+
+		await client.getVehicleStatus(options, 'test-access-token', 'LSJWH4095RN166487');
+
+		expect(timeoutCreated).to.equal(true);
+		expect(timeoutCleared).to.equal(true);
+	});
+
 	it('rejects status replies without basicVehicleStatus', async () => {
 		const client = new SaicApiClient(
 			() => Promise.resolve(new Response('{"code":0,"data":{}}')),

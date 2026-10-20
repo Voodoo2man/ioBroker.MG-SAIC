@@ -175,6 +175,9 @@ export type SaicVehicleSetting =
 /** HTTP transport type used for injectable API requests. */
 type FetchFunction = typeof fetch;
 type WaitFunction = (milliseconds: number, signal?: AbortSignal) => Promise<void>;
+type TimerFunctions = {
+	setTimeout: (callback: () => void, milliseconds: number) => () => void;
+};
 
 interface SaicApiEnvelope {
 	code?: number | string;
@@ -241,6 +244,7 @@ export class SaicApiClient {
 	private readonly now: () => number;
 	private readonly monotonicNow: () => number;
 	private readonly wait: WaitFunction;
+	private readonly timerFunctions: TimerFunctions;
 
 	/**
 	 * @param fetchFunction HTTP transport, injectable for tests.
@@ -248,6 +252,7 @@ export class SaicApiClient {
 	 * @param wait Delay function used between retry attempts.
 	 * @param debug Optional debug logger that receives status diagnostics without response values.
 	 * @param monotonicNow Monotonic clock used to bound live event polling.
+	 * @param timerFunctions Optional timer functions used for HTTP request timeouts.
 	 */
 	public constructor(
 		fetchFunction: FetchFunction = fetch,
@@ -274,11 +279,18 @@ export class SaicApiClient {
 			}),
 		debug: (message: string) => void = () => undefined,
 		monotonicNow: () => number = () => performance.now(),
+		timerFunctions: TimerFunctions = {
+			setTimeout: (callback, milliseconds) => {
+				const timer = setTimeout(callback, milliseconds);
+				return () => clearTimeout(timer);
+			},
+		},
 	) {
 		this.fetchFunction = fetchFunction;
 		this.now = now;
 		this.wait = wait;
 		this.monotonicNow = monotonicNow;
+		this.timerFunctions = timerFunctions;
 		this.debug = debug;
 	}
 
@@ -921,7 +933,7 @@ export class SaicApiClient {
 		signal?: AbortSignal,
 	): Promise<{ response: Response; body: string }> {
 		const controller = new AbortController();
-		const timer = setTimeout(
+		const clearTimer = this.timerFunctions.setTimeout(
 			() => controller.abort(new DOMException('Request timed out', 'TimeoutError')),
 			timeoutMs,
 		);
@@ -939,7 +951,7 @@ export class SaicApiClient {
 				throw new SaicBodyReadError(this.errorMessage(error));
 			}
 		} finally {
-			clearTimeout(timer);
+			clearTimer();
 			signal?.removeEventListener('abort', abort);
 		}
 	}
