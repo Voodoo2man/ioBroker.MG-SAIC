@@ -932,9 +932,7 @@ class MgSaic extends utils.Adapter {
 			if (!currentState || currentState.val === null) {
 				await this.setStateAsync(stateId, { val: legacyState?.val ?? setting.def, ack: true });
 			} else if (typeof currentState.val === 'number' && stateObject?.common.unit !== setting.unit) {
-				if (setting.id === 'climateTemperature') {
-					await this.setStateAsync(stateId, { val: currentState.val + 14, ack: true });
-				} else if (setting.id === 'chargeTargetSoc' && currentState.val >= 1 && currentState.val <= 7) {
+				if (setting.id === 'chargeTargetSoc' && currentState.val >= 1 && currentState.val <= 7) {
 					await this.setStateAsync(stateId, { val: (currentState.val + 3) * 10, ack: true });
 				}
 			}
