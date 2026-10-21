@@ -23,6 +23,7 @@ __export(status_metadata_exports, {
   getVehicleStatusMetadata: () => getVehicleStatusMetadata,
   normalizeChargingValue: () => normalizeChargingValue,
   normalizeVehicleStatusValue: () => normalizeVehicleStatusValue,
+  resolveOdometerValue: () => resolveOdometerValue,
   shouldDeleteUnavailableStatusValue: () => shouldDeleteUnavailableStatusValue
 });
 module.exports = __toCommonJS(status_metadata_exports);
@@ -958,6 +959,9 @@ function normalizeVehicleStatusValue(key, value) {
 function shouldDeleteUnavailableStatusValue(key) {
   return key !== "mileage";
 }
+function resolveOdometerValue(liveValue, cachedValue) {
+  return liveValue !== void 0 ? liveValue : cachedValue;
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   getChargingFieldMetadata,
@@ -965,6 +969,7 @@ function shouldDeleteUnavailableStatusValue(key) {
   getVehicleStatusMetadata,
   normalizeChargingValue,
   normalizeVehicleStatusValue,
+  resolveOdometerValue,
   shouldDeleteUnavailableStatusValue
 });
 //# sourceMappingURL=status-metadata.js.map

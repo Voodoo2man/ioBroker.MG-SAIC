@@ -5,6 +5,7 @@ import {
 	getChargingFieldMetadata,
 	normalizeChargingValue,
 	normalizeVehicleStatusValue,
+	resolveOdometerValue,
 	shouldDeleteUnavailableStatusValue,
 } from './status-metadata';
 
@@ -148,6 +149,13 @@ describe('getVehicleStatusMetadata', () => {
 	it('retains the last known odometer when SAIC omits its value', () => {
 		expect(shouldDeleteUnavailableStatusValue('mileage')).to.equal(false);
 		expect(shouldDeleteUnavailableStatusValue('speed')).to.equal(true);
+	});
+
+	it('uses cached odometer only when live status omits mileage', () => {
+		expect(resolveOdometerValue(1234, 1230)).to.equal(1234);
+		expect(resolveOdometerValue(0, 1230)).to.equal(0);
+		expect(resolveOdometerValue(undefined, 1230)).to.equal(1230);
+		expect(resolveOdometerValue(undefined, undefined)).to.equal(undefined);
 	});
 
 	it('localizes the charging port lock status without changing its raw numeric code', () => {

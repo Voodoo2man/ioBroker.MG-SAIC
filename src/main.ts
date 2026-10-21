@@ -22,6 +22,7 @@ import {
 	getChargingFieldMetadata,
 	normalizeChargingValue,
 	normalizeVehicleStatusValue,
+	resolveOdometerValue,
 	shouldDeleteUnavailableStatusValue,
 } from './status-metadata';
 import { getChargingFieldName, getRuntimeName } from './runtime-translations';
@@ -430,6 +431,33 @@ class MgSaic extends utils.Adapter {
 						statusErrors.push(`Ignored older live status for ${vehicle.vin}`);
 						continue;
 					}
+					if (status.basicVehicleStatus.mileage === undefined) {
+						try {
+							const cachedStatus = await this.client.getCachedVehicleStatus(
+								this.loginOptions,
+								this.accessToken,
+								vehicle.vin,
+								this.abortController.signal,
+							);
+							const cachedMileage = cachedStatus.basicVehicleStatus.mileage;
+							const mileage = resolveOdometerValue(undefined, cachedMileage);
+							if (mileage !== undefined) {
+								status = {
+									...status,
+									basicVehicleStatus: { ...status.basicVehicleStatus, mileage },
+								};
+								this.log.debug(
+									`Used cached odometer for ${vehicle.vin} because live status omitted mileage`,
+								);
+							}
+						} catch (cacheError) {
+							if (this.stopping) {
+								break;
+							}
+							const details = cacheError instanceof Error ? cacheError.message : 'Unknown cache error';
+							this.log.debug(`Could not retrieve cached odometer for ${vehicle.vin}: ${details}`);
+						}
+					}
 					try {
 						this.log.debug(
 							`Received live status for ${vehicle.vin}: ${Object.keys(status.basicVehicleStatus).length} basic fields, statusTime ${status.statusTime ?? 'missing'}`,
@@ -720,9 +748,6 @@ class MgSaic extends utils.Adapter {
 		}
 
 		const values: Record<string, number | undefined> = { ...status.basicVehicleStatus };
-		if (!Object.prototype.hasOwnProperty.call(values, 'mileage')) {
-			values.mileage = undefined;
-		}
 		if (status.statusTime !== undefined) {
 			values.statusTime = status.statusTime;
 		}
@@ -737,8 +762,15 @@ class MgSaic extends utils.Adapter {
 			const group = getVehicleStatusGroup(key);
 			const groupId = `${statusId}.${group}`;
 			const stateId = `${groupId}.${key}`;
-			if (value === undefined && shouldDeleteUnavailableStatusValue(key)) {
-				await this.delObjectAsync(stateId);
+			if (value === undefined) {
+				if (shouldDeleteUnavailableStatusValue(key)) {
+					await this.delObjectAsync(stateId);
+				} else {
+					const previousState = await this.getStateAsync(stateId);
+					if (previousState?.val === null) {
+						await this.delObjectAsync(stateId);
+					}
+				}
 				continue;
 			}
 			await this.setObjectNotExistsAsync(groupId, {
@@ -774,9 +806,6 @@ class MgSaic extends utils.Adapter {
 			});
 			if (this.stopping) {
 				return;
-			}
-			if (value === undefined) {
-				continue;
 			}
 			await this.setStateAsync(stateId, { val: normalizeVehicleStatusValue(key, value), ack: true });
 			if (this.stopping) {

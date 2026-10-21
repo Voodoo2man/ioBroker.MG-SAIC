@@ -1020,3 +1020,16 @@ export function normalizeVehicleStatusValue(key: string, value: number): number 
 export function shouldDeleteUnavailableStatusValue(key: string): boolean {
 	return key !== 'mileage';
 }
+
+/**
+ * Prefer live odometer and use the cached value only when live status omits it.
+ *
+ * @param liveValue Odometer from the live status response.
+ * @param cachedValue Odometer from the cached status response.
+ */
+export function resolveOdometerValue(
+	liveValue: number | undefined,
+	cachedValue: number | undefined,
+): number | undefined {
+	return liveValue !== undefined ? liveValue : cachedValue;
+}
