@@ -42,6 +42,8 @@ The adapter is published on npm but has not yet been added to the ioBroker adapt
 - (Voodoo2man) Added a localized name for the charging port lock status.
 - (Voodoo2man) Removed status objects when the reported values were unavailable.
 - (Voodoo2man) Added event-polled charging-management and charge-status data from the SAIC endpoint.
+- (Voodoo2man) Fixed missing object hierarchy and writable schedule-time metadata.
+- (Voodoo2man) Retained the last known odometer when SAIC omitted the reading.
 
 Older changelog entries are available in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

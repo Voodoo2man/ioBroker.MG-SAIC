@@ -926,3 +926,12 @@ export function normalizeVehicleStatusValue(key: string, value: number): number 
 	const scale = statusScales[key];
 	return scale ? Number((value * scale.factor).toFixed(scale.precision)) : value;
 }
+
+/**
+ * Keep the last known odometer when SAIC temporarily omits its value.
+ *
+ * @param key SAIC vehicle status field name.
+ */
+export function shouldDeleteUnavailableStatusValue(key: string): boolean {
+	return key !== 'mileage';
+}

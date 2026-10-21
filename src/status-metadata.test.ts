@@ -1,5 +1,10 @@
 import { expect } from 'chai';
-import { getVehicleStatusGroup, getVehicleStatusMetadata, normalizeVehicleStatusValue } from './status-metadata';
+import {
+	getVehicleStatusGroup,
+	getVehicleStatusMetadata,
+	normalizeVehicleStatusValue,
+	shouldDeleteUnavailableStatusValue,
+} from './status-metadata';
 
 describe('getVehicleStatusMetadata', () => {
 	it('groups status datapoints by vehicle function', () => {
@@ -106,6 +111,11 @@ describe('getVehicleStatusMetadata', () => {
 			unit: 'bar',
 		});
 		expect(normalizeVehicleStatusValue('unscaledField', 42)).to.equal(42);
+	});
+
+	it('retains the last known odometer when SAIC omits its value', () => {
+		expect(shouldDeleteUnavailableStatusValue('mileage')).to.equal(false);
+		expect(shouldDeleteUnavailableStatusValue('speed')).to.equal(true);
 	});
 
 	it('localizes the charging port lock status without changing its raw numeric code', () => {

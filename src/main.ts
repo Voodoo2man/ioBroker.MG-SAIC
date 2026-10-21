@@ -16,7 +16,12 @@ import {
 } from './saic-client';
 import { resolveSaicRegion } from './regions';
 import { isRefreshCommand } from './refresh-command';
-import { getVehicleStatusGroup, getVehicleStatusMetadata, normalizeVehicleStatusValue } from './status-metadata';
+import {
+	getVehicleStatusGroup,
+	getVehicleStatusMetadata,
+	normalizeVehicleStatusValue,
+	shouldDeleteUnavailableStatusValue,
+} from './status-metadata';
 import { getRuntimeName } from './runtime-translations';
 
 const vehicleCommands: Array<{ id: SaicVehicleCommand }> = [
@@ -142,6 +147,16 @@ class MgSaic extends utils.Adapter {
 		await this.extendObjectAsync('info.backend', { common: { name: getRuntimeName('backend') } });
 		await this.extendObjectAsync('info.connection', { common: { name: getRuntimeName('connection') } });
 		await this.extendObjectAsync('info.lastError', { common: { name: getRuntimeName('lastError') } });
+		await this.setObjectNotExistsAsync('commands', {
+			type: 'channel',
+			common: { name: getRuntimeName('commands') },
+			native: {},
+		});
+		await this.setObjectNotExistsAsync('vehicles', {
+			type: 'channel',
+			common: { name: 'Vehicles' },
+			native: {},
+		});
 		await this.setObjectNotExistsAsync('commands.refresh', {
 			type: 'state',
 			common: {
@@ -718,7 +733,9 @@ class MgSaic extends utils.Adapter {
 			const groupId = `${statusId}.${group}`;
 			const stateId = `${groupId}.${key}`;
 			if (value === undefined) {
-				await this.delObjectAsync(stateId);
+				if (shouldDeleteUnavailableStatusValue(key)) {
+					await this.delObjectAsync(stateId);
+				}
 				continue;
 			}
 			await this.setObjectNotExistsAsync(groupId, {
@@ -969,13 +986,13 @@ class MgSaic extends utils.Adapter {
 			{
 				id: 'chargingScheduleStart',
 				type: 'string',
-				role: 'value.time',
+				role: 'text',
 				def: '00:00',
 			},
 			{
 				id: 'chargingScheduleEnd',
 				type: 'string',
-				role: 'value.time',
+				role: 'text',
 				def: '06:00',
 			},
 			{
@@ -996,7 +1013,7 @@ class MgSaic extends utils.Adapter {
 			{
 				id: 'batteryHeatingScheduleStart',
 				type: 'string',
-				role: 'value.time',
+				role: 'text',
 				def: '00:00',
 			},
 		];

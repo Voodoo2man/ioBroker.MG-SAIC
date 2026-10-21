@@ -128,6 +128,16 @@ class MgSaic extends utils.Adapter {
     await this.extendObjectAsync("info.backend", { common: { name: (0, import_runtime_translations.getRuntimeName)("backend") } });
     await this.extendObjectAsync("info.connection", { common: { name: (0, import_runtime_translations.getRuntimeName)("connection") } });
     await this.extendObjectAsync("info.lastError", { common: { name: (0, import_runtime_translations.getRuntimeName)("lastError") } });
+    await this.setObjectNotExistsAsync("commands", {
+      type: "channel",
+      common: { name: (0, import_runtime_translations.getRuntimeName)("commands") },
+      native: {}
+    });
+    await this.setObjectNotExistsAsync("vehicles", {
+      type: "channel",
+      common: { name: "Vehicles" },
+      native: {}
+    });
     await this.setObjectNotExistsAsync("commands.refresh", {
       type: "state",
       common: {
@@ -669,7 +679,9 @@ class MgSaic extends utils.Adapter {
       const groupId = `${statusId}.${group}`;
       const stateId = `${groupId}.${key}`;
       if (value === void 0) {
-        await this.delObjectAsync(stateId);
+        if ((0, import_status_metadata.shouldDeleteUnavailableStatusValue)(key)) {
+          await this.delObjectAsync(stateId);
+        }
         continue;
       }
       await this.setObjectNotExistsAsync(groupId, {
@@ -903,13 +915,13 @@ class MgSaic extends utils.Adapter {
       {
         id: "chargingScheduleStart",
         type: "string",
-        role: "value.time",
+        role: "text",
         def: "00:00"
       },
       {
         id: "chargingScheduleEnd",
         type: "string",
-        role: "value.time",
+        role: "text",
         def: "06:00"
       },
       {
@@ -930,7 +942,7 @@ class MgSaic extends utils.Adapter {
       {
         id: "batteryHeatingScheduleStart",
         type: "string",
-        role: "value.time",
+        role: "text",
         def: "00:00"
       }
     ];

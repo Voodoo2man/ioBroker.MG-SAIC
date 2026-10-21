@@ -20,7 +20,8 @@ var status_metadata_exports = {};
 __export(status_metadata_exports, {
   getVehicleStatusGroup: () => getVehicleStatusGroup,
   getVehicleStatusMetadata: () => getVehicleStatusMetadata,
-  normalizeVehicleStatusValue: () => normalizeVehicleStatusValue
+  normalizeVehicleStatusValue: () => normalizeVehicleStatusValue,
+  shouldDeleteUnavailableStatusValue: () => shouldDeleteUnavailableStatusValue
 });
 module.exports = __toCommonJS(status_metadata_exports);
 function getVehicleStatusGroup(key) {
@@ -896,10 +897,14 @@ function normalizeVehicleStatusValue(key, value) {
   const scale = statusScales[key];
   return scale ? Number((value * scale.factor).toFixed(scale.precision)) : value;
 }
+function shouldDeleteUnavailableStatusValue(key) {
+  return key !== "mileage";
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   getVehicleStatusGroup,
   getVehicleStatusMetadata,
-  normalizeVehicleStatusValue
+  normalizeVehicleStatusValue,
+  shouldDeleteUnavailableStatusValue
 });
 //# sourceMappingURL=status-metadata.js.map
