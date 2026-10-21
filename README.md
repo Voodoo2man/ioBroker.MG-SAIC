@@ -37,23 +37,9 @@ The adapter is published on npm but has not yet been added to the ioBroker adapt
 ## Changelog
 ### **WORK IN PROGRESS**
 
-- (Voodoo2man) Improved release automation and removed unpublished version metadata.
-- (Voodoo2man) Updated release checks for Node.js 24 and routed retry timers through adapter-managed timers.
-- (Voodoo2man) Added a localized name for the charging port lock status.
-- (Voodoo2man) Removed status objects when the reported values were unavailable.
-- (Voodoo2man) Added event-polled charging-management and charge-status data from the SAIC endpoint.
-- (Voodoo2man) Fixed missing object hierarchy and writable schedule-time metadata.
-- (Voodoo2man) Retained the last known odometer when SAIC omitted the reading.
-- (Voodoo2man) Localized charging datapoints and moved telemetry and charging controls into their status and command groups.
-- (Voodoo2man) Added semantic roles, engineering units, and raw-value conversion for charging measurements.
-- (Voodoo2man) Used SAIC's cached odometer when live status omitted mileage and retained the last known value otherwise.
-- (Voodoo2man) Added the minutes unit to the remaining charging time datapoint.
-- (Voodoo2man) Scaled realtime charging energy to kWh.
-- (Voodoo2man) Scaled the last charge ending energy to kWh.
-- (Voodoo2man) Scaled charging current and voltage and added the GPS heading unit.
-- (Voodoo2man) Added the minutes unit to the remaining discharging time datapoint.
-- (Voodoo2man) Fixed the vehicle object hierarchy by making the vehicle collection a folder.
-- (Voodoo2man) Replaced raw SAIC charging group IDs with descriptive session and statistics folders.
+- (Voodoo2man) Improved release automation, updated Node.js release checks, and removed unpublished version metadata.
+- (Voodoo2man) Added charging data
+- (Voodoo2man) Fixed vehicle datapoint units and roles
 
 Older changelog entries are available in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
