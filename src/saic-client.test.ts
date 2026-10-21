@@ -1390,4 +1390,43 @@ describe('SaicApiClient charging status', () => {
 		expect(new Headers(requestInit?.headers).get('event-id')).to.equal('0');
 		expect(new Headers(requestInit?.headers).get('blade-auth')).to.equal('test-access-token');
 	});
+
+	it('continues a successful empty response using the returned event id', async () => {
+		const eventIds: string[] = [];
+		let callCount = 0;
+		const fetchFunction: typeof fetch = (_input, init) => {
+			callCount++;
+			eventIds.push(new Headers(init?.headers).get('event-id') ?? 'missing');
+			if (callCount === 1) {
+				return Promise.resolve(
+					new Response(JSON.stringify({ code: 0, message: 'success' }), {
+						headers: { 'event-id': 'charging-event-42' },
+					}),
+				);
+			}
+			return Promise.resolve(
+				new Response(
+					JSON.stringify({
+						code: 0,
+						data: {
+							chrgMgmtData: { bmsChrgSts: 1 },
+							rvsChargeStatus: { chargingGunState: 2 },
+						},
+					}),
+				),
+			);
+		};
+		const client = new SaicApiClient(
+			fetchFunction,
+			() => 1_700_000_000_123,
+			() => Promise.resolve(),
+		);
+
+		expect(await client.getVehicleChargingStatus(options, 'test-access-token', 'LSJWH4095RN166487')).to.deep.equal({
+			chrgMgmtData: { bmsChrgSts: 1 },
+			rvsChargeStatus: { chargingGunState: 2 },
+		});
+		expect(callCount).to.equal(2);
+		expect(eventIds).to.deep.equal(['0', 'charging-event-42']);
+	});
 });

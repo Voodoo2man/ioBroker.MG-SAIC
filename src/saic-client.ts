@@ -650,21 +650,36 @@ export class SaicApiClient {
 				throw new Error('SAIC charging status returned an invalid response');
 			}
 			const returnCode = Number(envelope.code);
+			const nextEventId = result.response.headers.get('event-id');
+			this.debug(
+				`GET ${requestPath} for ${vin} returned SAIC code ${String(envelope.code)}, data keys: ${Object.keys(envelope.data ?? {}).join(', ') || 'none'}, next event-id: ${nextEventId ?? 'none'}`,
+			);
 			if (returnCode === 401 || returnCode === 403) {
 				throw new SaicHttpError(`SAIC rejected charging status with code ${returnCode}`, returnCode);
 			}
-			const nextEventId = result.response.headers.get('event-id');
-			if (returnCode !== 0 && eventId !== '0' && returnCode !== 2 && returnCode !== 3 && returnCode !== 7) {
+			if (
+				![2, 3, 7].includes(returnCode) &&
+				((Boolean(nextEventId) && envelope.data === undefined) || (returnCode !== 0 && eventId !== '0'))
+			) {
+				if (this.monotonicNow() >= deadline) {
+					throw new Error(
+						envelope.message || 'SAIC charging status timed out while waiting for vehicle data',
+					);
+				}
 				await this.wait(Math.min(3_000, Math.max(0, deadline - this.monotonicNow())), signal);
-				eventId = nextEventId || eventId;
+				if (nextEventId) {
+					eventId = nextEventId;
+				}
 				continue;
 			}
 			if (returnCode !== 0) {
 				throw new Error(envelope.message || `SAIC charging status failed with code ${returnCode}`);
 			}
 			const chargingData = envelope.data;
-			if (!chargingData || typeof chargingData !== 'object') {
-				throw new Error('SAIC charging status response did not contain data');
+			if (!chargingData || typeof chargingData !== 'object' || Array.isArray(chargingData)) {
+				throw new Error(
+					`SAIC charging status response did not contain data (code: ${String(envelope.code)}, event-id: ${nextEventId ?? 'none'})`,
+				);
 			}
 			const parseFields = (value: unknown): Record<string, number | string | undefined> => {
 				if (!value || typeof value !== 'object' || Array.isArray(value)) {

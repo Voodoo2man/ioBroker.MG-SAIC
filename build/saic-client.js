@@ -370,6 +370,7 @@ class SaicApiClient {
    * @param signal Optional caller cancellation signal.
    */
   async getVehicleChargingStatus(options, accessToken, vin, signal) {
+    var _a;
     const requestPath = "/vehicle/charging/mgmtData";
     const query = new URLSearchParams({ vin: (0, import_node_crypto.createHash)("sha256").update(vin, "utf8").digest("hex") });
     const pathAndQuery = `${requestPath}?${query.toString()}`;
@@ -429,21 +430,33 @@ class SaicApiClient {
         throw new Error("SAIC charging status returned an invalid response");
       }
       const returnCode = Number(envelope.code);
+      const nextEventId = result.response.headers.get("event-id");
+      this.debug(
+        `GET ${requestPath} for ${vin} returned SAIC code ${String(envelope.code)}, data keys: ${Object.keys((_a = envelope.data) != null ? _a : {}).join(", ") || "none"}, next event-id: ${nextEventId != null ? nextEventId : "none"}`
+      );
       if (returnCode === 401 || returnCode === 403) {
         throw new SaicHttpError(`SAIC rejected charging status with code ${returnCode}`, returnCode);
       }
-      const nextEventId = result.response.headers.get("event-id");
-      if (returnCode !== 0 && eventId !== "0" && returnCode !== 2 && returnCode !== 3 && returnCode !== 7) {
+      if (![2, 3, 7].includes(returnCode) && (Boolean(nextEventId) && envelope.data === void 0 || returnCode !== 0 && eventId !== "0")) {
+        if (this.monotonicNow() >= deadline) {
+          throw new Error(
+            envelope.message || "SAIC charging status timed out while waiting for vehicle data"
+          );
+        }
         await this.wait(Math.min(3e3, Math.max(0, deadline - this.monotonicNow())), signal);
-        eventId = nextEventId || eventId;
+        if (nextEventId) {
+          eventId = nextEventId;
+        }
         continue;
       }
       if (returnCode !== 0) {
         throw new Error(envelope.message || `SAIC charging status failed with code ${returnCode}`);
       }
       const chargingData = envelope.data;
-      if (!chargingData || typeof chargingData !== "object") {
-        throw new Error("SAIC charging status response did not contain data");
+      if (!chargingData || typeof chargingData !== "object" || Array.isArray(chargingData)) {
+        throw new Error(
+          `SAIC charging status response did not contain data (code: ${String(envelope.code)}, event-id: ${nextEventId != null ? nextEventId : "none"})`
+        );
       }
       const parseFields = (value) => {
         if (!value || typeof value !== "object" || Array.isArray(value)) {
