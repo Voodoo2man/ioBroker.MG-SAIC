@@ -47,7 +47,7 @@ The adapter is published on npm but has not yet been added to the ioBroker adapt
 - (Voodoo2man) Localized charging datapoints and moved telemetry and charging controls into their status and command groups.
 - (Voodoo2man) Added semantic roles, engineering units, and raw-value conversion for charging measurements.
 - (Voodoo2man) Created the odometer datapoint even when SAIC has not returned a reading yet.
-- (Voodoo2man) Renamed the charging data groups to clarify session and statistics data.
+- (Voodoo2man) Renamed the charging data groups at startup to clarify session and statistics data.
 
 Older changelog entries are available in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

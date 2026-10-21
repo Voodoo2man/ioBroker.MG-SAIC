@@ -730,27 +730,10 @@ class MgSaic extends utils.Adapter {
     }
   }
   async createVehicleChargingObjects(vin, charging) {
-    const statusId = `vehicles.${vin}.status`;
-    const rootId = `${statusId}.charging`;
-    await this.setObjectNotExistsAsync(statusId, {
-      type: "channel",
-      common: { name: (0, import_runtime_translations.getRuntimeName)("currentStatus") },
-      native: {}
-    });
-    await this.setObjectNotExistsAsync(rootId, {
-      type: "channel",
-      common: { name: (0, import_runtime_translations.getRuntimeName)("commandGroup_charging") },
-      native: {}
-    });
+    await this.ensureVehicleChargingGroups(vin);
+    const rootId = `vehicles.${vin}.status.charging`;
     for (const group of ["chrgMgmtData", "rvsChargeStatus"]) {
       const groupId = `${rootId}.${group}`;
-      const groupName = (0, import_runtime_translations.getRuntimeName)(group === "chrgMgmtData" ? "chargingManagement" : "chargeStatus");
-      await this.setObjectNotExistsAsync(groupId, {
-        type: "channel",
-        common: { name: groupName },
-        native: {}
-      });
-      await this.extendObjectAsync(groupId, { common: { name: groupName } });
       for (const [field, value] of Object.entries(charging[group])) {
         if (this.stopping) {
           return;
@@ -780,6 +763,31 @@ class MgSaic extends utils.Adapter {
       }
     }
     await this.delObjectAsync(`vehicles.${vin}.charging`, { recursive: true });
+  }
+  async ensureVehicleChargingGroups(vin) {
+    const statusId = `vehicles.${vin}.status`;
+    const rootId = `${statusId}.charging`;
+    await this.setObjectNotExistsAsync(statusId, {
+      type: "channel",
+      common: { name: (0, import_runtime_translations.getRuntimeName)("currentStatus") },
+      native: {}
+    });
+    await this.setObjectNotExistsAsync(rootId, {
+      type: "channel",
+      common: { name: (0, import_runtime_translations.getRuntimeName)("commandGroup_charging") },
+      native: {}
+    });
+    await this.extendObjectAsync(rootId, { common: { name: (0, import_runtime_translations.getRuntimeName)("commandGroup_charging") } });
+    for (const group of ["chrgMgmtData", "rvsChargeStatus"]) {
+      const groupId = `${rootId}.${group}`;
+      const groupName = (0, import_runtime_translations.getRuntimeName)(group === "chrgMgmtData" ? "chargingManagement" : "chargeStatus");
+      await this.setObjectNotExistsAsync(groupId, {
+        type: "channel",
+        common: { name: groupName },
+        native: {}
+      });
+      await this.extendObjectAsync(groupId, { common: { name: groupName } });
+    }
   }
   async createCanonicalVehicleStatusObjects(vin, status, source) {
     if (this.stopping || !(0, import_saic_client.isVehicleStatusNotOlder)(status.statusTime, this.lastCanonicalStatusTimes.get(vin))) {
@@ -845,6 +853,7 @@ class MgSaic extends utils.Adapter {
     if (this.stopping) {
       return;
     }
+    await this.ensureVehicleChargingGroups(vehicle.vin);
     const commandsId = `${deviceId}.commands`;
     await this.setObjectNotExistsAsync(commandsId, {
       type: "channel",
