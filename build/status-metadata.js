@@ -839,6 +839,7 @@ const statusUnits = {
   exteriorTemperature: "\xB0C",
   extendedData1: "%",
   gpsAltitude: "m",
+  gpsHeading: "\xB0",
   gpsLatitude: "\xB0",
   gpsLongitude: "\xB0",
   frontLeftTyrePressure: "bar",
@@ -880,7 +881,7 @@ const chargingFieldMetadata = {
   chrgngAddedElecRng: { type: "number", role: "value.distance", unit: "km" },
   chrgngRmnngTime: { type: "number", role: "value.interval", unit: "min" },
   clstrElecRngToEPT: { type: "number", role: "value.distance", unit: "km" },
-  disChrgngRmnngTime: { type: "number", role: "value.interval" },
+  disChrgngRmnngTime: { type: "number", role: "value.interval", unit: "min" },
   imcuChrgngEstdElecRng: { type: "number", role: "value.distance", unit: "km" },
   imcuDschrgngEstdElecRng: { type: "number", role: "value.distance", unit: "km" },
   imcuVehElecRng: { type: "number", role: "value.distance", unit: "km" },
@@ -889,15 +890,17 @@ const chargingFieldMetadata = {
   chargingDuration: { type: "number", role: "value.interval", unit: "min", factor: 1 / 60, precision: 1 },
   endTime: { type: "number", role: "date", factor: 1e3 },
   fuelRangeElec: { type: "number", role: "value.distance", unit: "km", factor: 0.1, precision: 1 },
+  lastChargeEndingPower: { type: "number", role: "value.energy", unit: "kWh", factor: 0.1, precision: 1 },
   mileage: { type: "number", role: "value.distance", unit: "km", factor: 0.1, precision: 1 },
   mileageOfDay: { type: "number", role: "value.distance", unit: "km", factor: 0.1, precision: 1 },
   mileageSinceLastCharge: { type: "number", role: "value.distance", unit: "km", factor: 0.1, precision: 1 },
   powerUsageOfDay: { type: "number", role: "value.energy", unit: "kWh", factor: 0.1, precision: 1 },
   powerUsageSinceLastCharge: { type: "number", role: "value.energy", unit: "kWh", factor: 0.1, precision: 1 },
+  realtimePower: { type: "number", role: "value.energy", unit: "kWh", factor: 0.1, precision: 1 },
   startTime: { type: "number", role: "date", factor: 1e3 },
   totalBatteryCapacity: { type: "number", role: "value.energy", unit: "kWh", factor: 0.1, precision: 1 },
-  workingCurrent: { type: "number", role: "value.current", unit: "A" },
-  workingVoltage: { type: "number", role: "value.voltage", unit: "V" }
+  workingCurrent: { type: "number", role: "value.current", unit: "A", factor: 0.01, precision: 2 },
+  workingVoltage: { type: "number", role: "value.voltage", unit: "V", factor: 0.01, precision: 2 }
 };
 function getChargingFieldMetadata(key) {
   var _a;

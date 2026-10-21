@@ -24,6 +24,10 @@ describe('getVehicleStatusMetadata', () => {
 			role: 'value.interval',
 			unit: 'min',
 		});
+		expect(getChargingFieldMetadata('disChrgngRmnngTime')).to.include({
+			role: 'value.interval',
+			unit: 'min',
+		});
 		expect(getChargingFieldMetadata('onBdChrgrAltrCrntInptCrnt')).to.include({
 			role: 'value.current',
 			unit: 'A',
@@ -38,6 +42,14 @@ describe('getVehicleStatusMetadata', () => {
 			role: 'value.energy',
 			unit: 'kWh',
 		});
+		expect(getChargingFieldMetadata('realtimePower')).to.include({
+			role: 'value.energy',
+			unit: 'kWh',
+		});
+		expect(getChargingFieldMetadata('lastChargeEndingPower')).to.include({
+			role: 'value.energy',
+			unit: 'kWh',
+		});
 		expect(getChargingFieldMetadata('bmsChrgSts')).to.deep.equal({ type: 'number', role: 'value' });
 	});
 
@@ -47,6 +59,10 @@ describe('getVehicleStatusMetadata', () => {
 		expect(normalizeChargingValue('bmsPackVol', 1707)).to.equal(426.8);
 		expect(normalizeChargingValue('bmsPackCrnt', 19800)).to.equal(10);
 		expect(normalizeChargingValue('chargingDuration', 3600)).to.equal(60);
+		expect(normalizeChargingValue('realtimePower', 725)).to.equal(72.5);
+		expect(normalizeChargingValue('lastChargeEndingPower', 725)).to.equal(72.5);
+		expect(normalizeChargingValue('workingCurrent', 20003)).to.equal(200.03);
+		expect(normalizeChargingValue('workingVoltage', 1776)).to.equal(17.76);
 		expect(normalizeChargingValue('chargingGunState', 1)).to.equal(true);
 		expect(normalizeChargingValue('unscaledField', 42)).to.equal(42);
 		expect(normalizeChargingValue('bmsPackSOCDsp', -128)).to.equal(-128);
@@ -116,6 +132,7 @@ describe('getVehicleStatusMetadata', () => {
 			role: 'value.gps.elevation',
 			unit: 'm',
 		});
+		expect(getVehicleStatusMetadata('gpsHeading').unit).to.equal('°');
 		expect(getVehicleStatusMetadata('gpsLatitude')).to.include({
 			type: 'number',
 			role: 'value.gps.latitude',
