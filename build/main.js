@@ -137,8 +137,8 @@ class MgSaic extends utils.Adapter {
       common: { name: (0, import_runtime_translations.getRuntimeName)("commands") },
       native: {}
     });
-    await this.setObjectNotExistsAsync("vehicles", {
-      type: "channel",
+    await this.setObjectAsync("vehicles", {
+      type: "folder",
       common: { name: "Vehicles" },
       native: {}
     });
