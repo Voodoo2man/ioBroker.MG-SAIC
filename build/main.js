@@ -287,6 +287,22 @@ class MgSaic extends utils.Adapter {
               break;
             }
           }
+          try {
+            const charging = await this.client.getVehicleChargingStatus(
+              this.loginOptions,
+              this.accessToken,
+              vehicle.vin,
+              this.abortController.signal
+            );
+            await this.createVehicleChargingObjects(vehicle.vin, charging);
+          } catch (error) {
+            if (this.stopping) {
+              break;
+            }
+            const details = error instanceof Error ? error.message : "Unknown charging data error";
+            statusErrors.push(`Charging data request failed for ${vehicle.vin}: ${details}`);
+            this.log.warn(`Could not retrieve charging data for vehicle ${vehicle.vin}: ${details}`);
+          }
           let status;
           try {
             this.log.debug(`Refreshing live status for ${vehicle.vin}`);
@@ -651,6 +667,11 @@ class MgSaic extends utils.Adapter {
       }
       const group = (0, import_status_metadata.getVehicleStatusGroup)(key);
       const groupId = `${statusId}.${group}`;
+      const stateId = `${groupId}.${key}`;
+      if (value === void 0) {
+        await this.delObjectAsync(stateId);
+        continue;
+      }
       await this.setObjectNotExistsAsync(groupId, {
         type: "channel",
         common: { name: (0, import_runtime_translations.getRuntimeName)(group) },
@@ -661,7 +682,6 @@ class MgSaic extends utils.Adapter {
         return;
       }
       const metadata = (0, import_status_metadata.getVehicleStatusMetadata)(key);
-      const stateId = `${groupId}.${key}`;
       const common = {
         name: metadata.name,
         type: metadata.type,
@@ -686,13 +706,51 @@ class MgSaic extends utils.Adapter {
       if (this.stopping) {
         return;
       }
-      if (value !== void 0) {
-        await this.setStateAsync(stateId, { val: (0, import_status_metadata.normalizeVehicleStatusValue)(key, value), ack: true });
-      }
+      await this.setStateAsync(stateId, { val: (0, import_status_metadata.normalizeVehicleStatusValue)(key, value), ack: true });
       if (this.stopping) {
         return;
       }
       await this.delObjectAsync(`${statusId}.${key}`);
+    }
+  }
+  async createVehicleChargingObjects(vin, charging) {
+    const rootId = `vehicles.${vin}.charging`;
+    await this.setObjectNotExistsAsync(rootId, {
+      type: "channel",
+      common: { name: "Charging" },
+      native: {}
+    });
+    for (const group of ["chrgMgmtData", "rvsChargeStatus"]) {
+      const groupId = `${rootId}.${group}`;
+      await this.setObjectNotExistsAsync(groupId, {
+        type: "channel",
+        common: { name: group === "chrgMgmtData" ? "Charging management" : "Charge status" },
+        native: {}
+      });
+      for (const [field, value] of Object.entries(charging[group])) {
+        if (this.stopping) {
+          return;
+        }
+        const stateId = `${groupId}.${field}`;
+        if (value === void 0) {
+          await this.delObjectAsync(stateId);
+          continue;
+        }
+        const isPortLock = field === "ccuEleccLckCtrlDspCmd";
+        const common = {
+          name: field,
+          type: isPortLock ? "boolean" : typeof value === "string" ? "string" : "number",
+          role: isPortLock ? "indicator" : typeof value === "string" ? "text" : "value",
+          read: true,
+          write: false
+        };
+        await this.setObjectNotExistsAsync(stateId, { type: "state", common, native: {} });
+        await this.extendObjectAsync(stateId, { common });
+        await this.setStateAsync(stateId, {
+          val: isPortLock ? value === 1 : value,
+          ack: true
+        });
+      }
     }
   }
   async createCanonicalVehicleStatusObjects(vin, status, source) {

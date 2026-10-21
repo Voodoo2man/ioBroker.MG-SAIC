@@ -362,6 +362,110 @@ class SaicApiClient {
     return this.requestVehicleStatus(options, accessToken, vin, "/vehicle/status/cache", false, signal);
   }
   /**
+   * Retrieve charging-management values reported by SAIC.
+   *
+   * @param options Account region and tenant settings.
+   * @param accessToken Token returned by {@link login}.
+   * @param vin Vehicle identification number.
+   * @param signal Optional caller cancellation signal.
+   */
+  async getVehicleChargingStatus(options, accessToken, vin, signal) {
+    const requestPath = "/vehicle/charging/mgmtData";
+    const query = new URLSearchParams({ vin: (0, import_node_crypto.createHash)("sha256").update(vin, "utf8").digest("hex") });
+    const pathAndQuery = `${requestPath}?${query.toString()}`;
+    const contentType = "application/json";
+    const baseUrl = options.baseUrl.endsWith("/") ? options.baseUrl : `${options.baseUrl}/`;
+    const requestUrl = new URL(`${requestPath.slice(1)}?${query.toString()}`, baseUrl);
+    const deadline = this.monotonicNow() + 3e4;
+    let eventId = "0";
+    for (let requestCount = 0; requestCount < 11; requestCount++) {
+      if (signal == null ? void 0 : signal.aborted) {
+        throw signal.reason;
+      }
+      if (this.monotonicNow() >= deadline) {
+        throw new Error("SAIC charging status timed out while waiting for vehicle data");
+      }
+      const timestamp = String(this.now());
+      const headers = {
+        Accept: "application/json",
+        "Accept-Encoding": "gzip",
+        "Content-Type": `${contentType};charset=utf-8`,
+        "ORIGINAL-CONTENT-TYPE": contentType,
+        "APP-CONTENT-ENCRYPTED": "1",
+        "APP-LANGUAGE-TYPE": "en",
+        "APP-SEND-DATE": timestamp,
+        "APP-VERIFICATION-STRING": (0, import_saic_crypto.createSaicRequestSignature)(
+          pathAndQuery,
+          options.tenantId,
+          accessToken,
+          timestamp,
+          contentType,
+          ""
+        ),
+        REGION: options.regionCode,
+        "tenant-id": options.tenantId,
+        "User-Type": "app",
+        "User-Agent": "Europe/2.1.0 (iPad; iOS 18.5; Scale/2.00)",
+        "blade-auth": accessToken,
+        "event-id": eventId
+      };
+      const result = await this.fetchResponse(
+        requestUrl,
+        { method: "GET", headers },
+        Math.max(1, Math.min(5e3, deadline - this.monotonicNow())),
+        signal
+      );
+      if (!result.response.ok) {
+        throw new SaicHttpError(
+          `SAIC charging status failed with HTTP status ${result.response.status}`,
+          result.response.status
+        );
+      }
+      const decodedBody = this.decodeResponseBody(result.response, result.body, "charging status");
+      let envelope;
+      try {
+        envelope = JSON.parse(decodedBody);
+      } catch {
+        throw new Error("SAIC charging status returned an invalid response");
+      }
+      const returnCode = Number(envelope.code);
+      if (returnCode === 401 || returnCode === 403) {
+        throw new SaicHttpError(`SAIC rejected charging status with code ${returnCode}`, returnCode);
+      }
+      const nextEventId = result.response.headers.get("event-id");
+      if (returnCode !== 0 && eventId !== "0" && returnCode !== 2 && returnCode !== 3 && returnCode !== 7) {
+        await this.wait(Math.min(3e3, Math.max(0, deadline - this.monotonicNow())), signal);
+        eventId = nextEventId || eventId;
+        continue;
+      }
+      if (returnCode !== 0) {
+        throw new Error(envelope.message || `SAIC charging status failed with code ${returnCode}`);
+      }
+      const chargingData = envelope.data;
+      if (!chargingData || typeof chargingData !== "object") {
+        throw new Error("SAIC charging status response did not contain data");
+      }
+      const parseFields = (value) => {
+        if (!value || typeof value !== "object" || Array.isArray(value)) {
+          return {};
+        }
+        return Object.fromEntries(
+          Object.entries(value).map(([field, raw]) => [
+            field,
+            typeof raw === "number" && Number.isFinite(raw) && raw !== -128 ? raw : typeof raw === "string" && raw.length > 0 ? raw : void 0
+          ])
+        );
+      };
+      const chrgMgmtData = parseFields(chargingData.chrgMgmtData);
+      const rvsChargeStatus = parseFields(chargingData.rvsChargeStatus);
+      if (Object.keys(chrgMgmtData).length === 0 && Object.keys(rvsChargeStatus).length === 0) {
+        throw new Error("SAIC charging status response contained no charging fields");
+      }
+      return { chrgMgmtData, rvsChargeStatus };
+    }
+    throw new Error("SAIC charging status event polling exceeded its request limit");
+  }
+  /**
    * Execute a verified SAIC vehicle-control action.
    *
    * @param options Account region and tenant settings.
