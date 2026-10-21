@@ -28,6 +28,10 @@ var import_regions = require("./regions");
 var import_refresh_command = require("./refresh-command");
 var import_status_metadata = require("./status-metadata");
 var import_runtime_translations = require("./runtime-translations");
+const chargingGroups = [
+  { source: "chrgMgmtData", id: "session", name: "chargingManagement" },
+  { source: "rvsChargeStatus", id: "statistics", name: "chargeStatus" }
+];
 const vehicleCommands = [
   { id: "lock" },
   { id: "unlock" },
@@ -760,9 +764,9 @@ class MgSaic extends utils.Adapter {
   async createVehicleChargingObjects(vin, charging) {
     await this.ensureVehicleChargingGroups(vin);
     const rootId = `vehicles.${vin}.status.charging`;
-    for (const group of ["chrgMgmtData", "rvsChargeStatus"]) {
-      const groupId = `${rootId}.${group}`;
-      for (const [field, value] of Object.entries(charging[group])) {
+    for (const { source, id } of chargingGroups) {
+      const groupId = `${rootId}.${id}`;
+      for (const [field, value] of Object.entries(charging[source])) {
         if (this.stopping) {
           return;
         }
@@ -806,15 +810,16 @@ class MgSaic extends utils.Adapter {
       native: {}
     });
     await this.extendObjectAsync(rootId, { common: { name: (0, import_runtime_translations.getRuntimeName)("commandGroup_charging") } });
-    for (const group of ["chrgMgmtData", "rvsChargeStatus"]) {
-      const groupId = `${rootId}.${group}`;
-      const groupName = (0, import_runtime_translations.getRuntimeName)(group === "chrgMgmtData" ? "chargingManagement" : "chargeStatus");
+    for (const { source, id, name } of chargingGroups) {
+      const groupId = `${rootId}.${id}`;
+      const groupName = (0, import_runtime_translations.getRuntimeName)(name);
       await this.setObjectNotExistsAsync(groupId, {
         type: "channel",
         common: { name: groupName },
         native: {}
       });
       await this.extendObjectAsync(groupId, { common: { name: groupName } });
+      await this.delObjectAsync(`${rootId}.${source}`, { recursive: true });
     }
   }
   async createCanonicalVehicleStatusObjects(vin, status, source) {
