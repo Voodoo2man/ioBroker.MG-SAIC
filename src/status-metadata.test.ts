@@ -2,11 +2,43 @@ import { expect } from 'chai';
 import {
 	getVehicleStatusGroup,
 	getVehicleStatusMetadata,
+	getChargingFieldMetadata,
+	normalizeChargingValue,
 	normalizeVehicleStatusValue,
 	shouldDeleteUnavailableStatusValue,
 } from './status-metadata';
 
 describe('getVehicleStatusMetadata', () => {
+	it('assigns engineering roles and units to known charging measurements', () => {
+		expect(getChargingFieldMetadata('bmsPackSOCDsp')).to.include({
+			type: 'number',
+			role: 'value.battery',
+			unit: '%',
+		});
+		expect(getChargingFieldMetadata('mileageSinceLastCharge')).to.include({
+			role: 'value.distance',
+			unit: 'km',
+		});
+		expect(getChargingFieldMetadata('onBdChrgrAltrCrntInptCrnt')).not.to.have.property('unit');
+		expect(getChargingFieldMetadata('workingVoltage')).not.to.have.property('unit');
+		expect(getChargingFieldMetadata('powerUsageSinceLastCharge')).to.include({
+			role: 'value.energy',
+			unit: 'kWh',
+		});
+		expect(getChargingFieldMetadata('bmsChrgSts')).to.deep.equal({ type: 'number', role: 'value' });
+	});
+
+	it('converts scaled and encoded charging values before publishing units', () => {
+		expect(normalizeChargingValue('bmsPackSOCDsp', 831)).to.equal(83.1);
+		expect(normalizeChargingValue('bmsOnBdChrgTrgtSOCDspCmd', 7)).to.equal(100);
+		expect(normalizeChargingValue('bmsPackVol', 1707)).to.equal(426.8);
+		expect(normalizeChargingValue('bmsPackCrnt', 19800)).to.equal(10);
+		expect(normalizeChargingValue('chargingDuration', 3600)).to.equal(60);
+		expect(normalizeChargingValue('chargingGunState', 1)).to.equal(true);
+		expect(normalizeChargingValue('unscaledField', 42)).to.equal(42);
+		expect(normalizeChargingValue('bmsPackSOCDsp', -128)).to.equal(-128);
+	});
+
 	it('groups status datapoints by vehicle function', () => {
 		expect(getVehicleStatusGroup('speed')).to.equal('driving');
 		expect(getVehicleStatusGroup('driverWindow')).to.equal('access');

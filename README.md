@@ -44,6 +44,8 @@ The adapter is published on npm but has not yet been added to the ioBroker adapt
 - (Voodoo2man) Added event-polled charging-management and charge-status data from the SAIC endpoint.
 - (Voodoo2man) Fixed missing object hierarchy and writable schedule-time metadata.
 - (Voodoo2man) Retained the last known odometer when SAIC omitted the reading.
+- (Voodoo2man) Localized charging datapoints and moved telemetry and charging controls into their status and command groups.
+- (Voodoo2man) Added semantic roles, engineering units, and raw-value conversion for charging measurements.
 
 Older changelog entries are available in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
