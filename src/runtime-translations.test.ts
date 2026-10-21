@@ -100,6 +100,13 @@ describe('runtime command translations', () => {
 		}
 	});
 
+	it('uses distinct names for the charging session and charging statistics groups', () => {
+		expect(getRuntimeName('chargingManagement').de).to.equal('Ladevorgang');
+		expect(getRuntimeName('chargingManagement').en).to.equal('Charging session');
+		expect(getRuntimeName('chargeStatus').de).to.equal('Ladestatistik');
+		expect(getRuntimeName('chargeStatus').en).to.equal('Charging statistics');
+	});
+
 	it('provides display names for charging API datapoints', () => {
 		const fields = [
 			'bmsAdpPubChrgSttnDspCmd',

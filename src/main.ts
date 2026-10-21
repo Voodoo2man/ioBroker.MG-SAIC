@@ -720,6 +720,9 @@ class MgSaic extends utils.Adapter {
 		}
 
 		const values: Record<string, number | undefined> = { ...status.basicVehicleStatus };
+		if (!Object.prototype.hasOwnProperty.call(values, 'mileage')) {
+			values.mileage = undefined;
+		}
 		if (status.statusTime !== undefined) {
 			values.statusTime = status.statusTime;
 		}
@@ -734,10 +737,8 @@ class MgSaic extends utils.Adapter {
 			const group = getVehicleStatusGroup(key);
 			const groupId = `${statusId}.${group}`;
 			const stateId = `${groupId}.${key}`;
-			if (value === undefined) {
-				if (shouldDeleteUnavailableStatusValue(key)) {
-					await this.delObjectAsync(stateId);
-				}
+			if (value === undefined && shouldDeleteUnavailableStatusValue(key)) {
+				await this.delObjectAsync(stateId);
 				continue;
 			}
 			await this.setObjectNotExistsAsync(groupId, {
@@ -773,6 +774,9 @@ class MgSaic extends utils.Adapter {
 			});
 			if (this.stopping) {
 				return;
+			}
+			if (value === undefined) {
+				continue;
 			}
 			await this.setStateAsync(stateId, { val: normalizeVehicleStatusValue(key, value), ack: true });
 			if (this.stopping) {

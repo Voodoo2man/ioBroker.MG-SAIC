@@ -664,6 +664,9 @@ class MgSaic extends utils.Adapter {
       return;
     }
     const values = { ...status.basicVehicleStatus };
+    if (!Object.prototype.hasOwnProperty.call(values, "mileage")) {
+      values.mileage = void 0;
+    }
     if (status.statusTime !== void 0) {
       values.statusTime = status.statusTime;
     }
@@ -678,10 +681,8 @@ class MgSaic extends utils.Adapter {
       const group = (0, import_status_metadata.getVehicleStatusGroup)(key);
       const groupId = `${statusId}.${group}`;
       const stateId = `${groupId}.${key}`;
-      if (value === void 0) {
-        if ((0, import_status_metadata.shouldDeleteUnavailableStatusValue)(key)) {
-          await this.delObjectAsync(stateId);
-        }
+      if (value === void 0 && (0, import_status_metadata.shouldDeleteUnavailableStatusValue)(key)) {
+        await this.delObjectAsync(stateId);
         continue;
       }
       await this.setObjectNotExistsAsync(groupId, {
@@ -717,6 +718,9 @@ class MgSaic extends utils.Adapter {
       });
       if (this.stopping) {
         return;
+      }
+      if (value === void 0) {
+        continue;
       }
       await this.setStateAsync(stateId, { val: (0, import_status_metadata.normalizeVehicleStatusValue)(key, value), ack: true });
       if (this.stopping) {
