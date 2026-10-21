@@ -908,14 +908,14 @@ const chargingFieldMetadata: Record<string, ChargingFieldMetadata> = {
 	bmsEstdElecRng: { type: 'number', role: 'value.distance', unit: 'km' },
 	bmsOnBdChrgTrgtSOCDspCmd: { type: 'number', role: 'value.battery', unit: '%' },
 	chrgngAddedElecRng: { type: 'number', role: 'value.distance', unit: 'km' },
-	chrgngRmnngTime: { type: 'number', role: 'value.interval' },
+	chrgngRmnngTime: { type: 'number', role: 'value.interval', unit: 'min' },
 	clstrElecRngToEPT: { type: 'number', role: 'value.distance', unit: 'km' },
 	disChrgngRmnngTime: { type: 'number', role: 'value.interval' },
 	imcuChrgngEstdElecRng: { type: 'number', role: 'value.distance', unit: 'km' },
 	imcuDschrgngEstdElecRng: { type: 'number', role: 'value.distance', unit: 'km' },
 	imcuVehElecRng: { type: 'number', role: 'value.distance', unit: 'km' },
-	onBdChrgrAltrCrntInptCrnt: { type: 'number', role: 'value.current' },
-	onBdChrgrAltrCrntInptVol: { type: 'number', role: 'value.voltage' },
+	onBdChrgrAltrCrntInptCrnt: { type: 'number', role: 'value.current', unit: 'A' },
+	onBdChrgrAltrCrntInptVol: { type: 'number', role: 'value.voltage', unit: 'V' },
 	chargingDuration: { type: 'number', role: 'value.interval', unit: 'min', factor: 1 / 60, precision: 1 },
 	endTime: { type: 'number', role: 'date', factor: 1000 },
 	fuelRangeElec: { type: 'number', role: 'value.distance', unit: 'km', factor: 0.1, precision: 1 },
@@ -926,8 +926,8 @@ const chargingFieldMetadata: Record<string, ChargingFieldMetadata> = {
 	powerUsageSinceLastCharge: { type: 'number', role: 'value.energy', unit: 'kWh', factor: 0.1, precision: 1 },
 	startTime: { type: 'number', role: 'date', factor: 1000 },
 	totalBatteryCapacity: { type: 'number', role: 'value.energy', unit: 'kWh', factor: 0.1, precision: 1 },
-	workingCurrent: { type: 'number', role: 'value.current' },
-	workingVoltage: { type: 'number', role: 'value.voltage' },
+	workingCurrent: { type: 'number', role: 'value.current', unit: 'A' },
+	workingVoltage: { type: 'number', role: 'value.voltage', unit: 'V' },
 };
 
 /**

@@ -20,8 +20,20 @@ describe('getVehicleStatusMetadata', () => {
 			role: 'value.distance',
 			unit: 'km',
 		});
-		expect(getChargingFieldMetadata('onBdChrgrAltrCrntInptCrnt')).not.to.have.property('unit');
-		expect(getChargingFieldMetadata('workingVoltage')).not.to.have.property('unit');
+		expect(getChargingFieldMetadata('chrgngRmnngTime')).to.include({
+			role: 'value.interval',
+			unit: 'min',
+		});
+		expect(getChargingFieldMetadata('onBdChrgrAltrCrntInptCrnt')).to.include({
+			role: 'value.current',
+			unit: 'A',
+		});
+		expect(getChargingFieldMetadata('onBdChrgrAltrCrntInptVol')).to.include({
+			role: 'value.voltage',
+			unit: 'V',
+		});
+		expect(getChargingFieldMetadata('workingCurrent')).to.include({ role: 'value.current', unit: 'A' });
+		expect(getChargingFieldMetadata('workingVoltage')).to.include({ role: 'value.voltage', unit: 'V' });
 		expect(getChargingFieldMetadata('powerUsageSinceLastCharge')).to.include({
 			role: 'value.energy',
 			unit: 'kWh',
