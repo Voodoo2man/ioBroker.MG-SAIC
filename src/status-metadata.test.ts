@@ -108,6 +108,14 @@ describe('getVehicleStatusMetadata', () => {
 		expect(normalizeVehicleStatusValue('unscaledField', 42)).to.equal(42);
 	});
 
+	it('localizes the charging port lock status without changing its raw numeric code', () => {
+		const metadata = getVehicleStatusMetadata('Charging_Port_Lock_Set_Off');
+		expect(metadata.name.en).to.equal('Charging port lock set off');
+		expect(metadata.name.de).to.equal('Ladeanschluss entriegelt');
+		expect(metadata.type).to.equal('number');
+		expect(normalizeVehicleStatusValue('Charging_Port_Lock_Set_Off', 2)).to.equal(2);
+	});
+
 	it('provides localized Home Assistant-style state names', () => {
 		const names = getVehicleStatusMetadata('batteryVoltage').name;
 		expect(names.en).to.equal('Auxiliary battery voltage');

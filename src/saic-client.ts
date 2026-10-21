@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { clearTimeout as cancelTimeout, setTimeout as scheduleTimeout } from 'node:timers';
 import {
 	createSaicRequestSignature,
 	decryptSaicResponseBody,
@@ -179,6 +180,13 @@ type TimerFunctions = {
 	setTimeout: (callback: () => void, milliseconds: number) => () => void;
 };
 
+const defaultTimerFunctions: TimerFunctions = {
+	setTimeout: (callback, milliseconds) => {
+		const timer = scheduleTimeout(callback, milliseconds);
+		return () => cancelTimeout(timer);
+	},
+};
+
 interface SaicApiEnvelope {
 	code?: number | string;
 	message?: string;
@@ -257,38 +265,32 @@ export class SaicApiClient {
 	public constructor(
 		fetchFunction: FetchFunction = fetch,
 		now: () => number = Date.now,
-		wait: WaitFunction = (milliseconds, signal) =>
-			new Promise((resolve, reject) => {
-				if (signal?.aborted) {
-					reject(signal.reason instanceof Error ? signal.reason : new Error('Request was aborted'));
-					return;
-				}
-				const timerRef: { current?: NodeJS.Timeout } = {};
-				const onAbort = (): void => {
-					if (timerRef.current) {
-						clearTimeout(timerRef.current);
-					}
-					reject(signal?.reason instanceof Error ? signal.reason : new Error('Request was aborted'));
-				};
-				const timer = setTimeout(() => {
-					signal?.removeEventListener('abort', onAbort);
-					resolve();
-				}, milliseconds);
-				timerRef.current = timer;
-				signal?.addEventListener('abort', onAbort, { once: true });
-			}),
+		wait: WaitFunction | undefined = undefined,
 		debug: (message: string) => void = () => undefined,
 		monotonicNow: () => number = () => performance.now(),
-		timerFunctions: TimerFunctions = {
-			setTimeout: (callback, milliseconds) => {
-				const timer = setTimeout(callback, milliseconds);
-				return () => clearTimeout(timer);
-			},
-		},
+		timerFunctions: TimerFunctions = defaultTimerFunctions,
 	) {
 		this.fetchFunction = fetchFunction;
 		this.now = now;
-		this.wait = wait;
+		this.wait =
+			wait ??
+			((milliseconds, signal) =>
+				new Promise((resolve, reject) => {
+					if (signal?.aborted) {
+						reject(signal.reason instanceof Error ? signal.reason : new Error('Request was aborted'));
+						return;
+					}
+					const timerHandle: { cancel?: () => void } = {};
+					const onAbort = (): void => {
+						timerHandle.cancel?.();
+						reject(signal?.reason instanceof Error ? signal.reason : new Error('Request was aborted'));
+					};
+					timerHandle.cancel = this.timerFunctions.setTimeout(() => {
+						signal?.removeEventListener('abort', onAbort);
+						resolve();
+					}, milliseconds);
+					signal?.addEventListener('abort', onAbort, { once: true });
+				}));
 		this.monotonicNow = monotonicNow;
 		this.timerFunctions = timerFunctions;
 		this.debug = debug;
