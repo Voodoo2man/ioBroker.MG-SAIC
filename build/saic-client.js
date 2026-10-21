@@ -29,6 +29,7 @@ __export(saic_client_exports, {
 });
 module.exports = __toCommonJS(saic_client_exports);
 var import_node_crypto = require("node:crypto");
+var import_node_timers = require("node:timers");
 var import_saic_crypto = require("./saic-crypto");
 function getClimateTemperatureRange(series) {
   if (series == null ? void 0 : series.startsWith("EH32")) {
@@ -52,6 +53,12 @@ function targetSocPercentToCode(percentage) {
   }
   return percentage / 10 - 3;
 }
+const defaultTimerFunctions = {
+  setTimeout: (callback, milliseconds) => {
+    const timer = (0, import_node_timers.setTimeout)(callback, milliseconds);
+    return () => (0, import_node_timers.clearTimeout)(timer);
+  }
+};
 class RetryableVehicleStatusError extends Error {
 }
 class SaicBodyReadError extends Error {
@@ -92,33 +99,26 @@ class SaicApiClient {
    * @param monotonicNow Monotonic clock used to bound live event polling.
    * @param timerFunctions Optional timer functions used for HTTP request timeouts.
    */
-  constructor(fetchFunction = fetch, now = Date.now, wait = (milliseconds, signal) => new Promise((resolve, reject) => {
-    if (signal == null ? void 0 : signal.aborted) {
-      reject(signal.reason instanceof Error ? signal.reason : new Error("Request was aborted"));
-      return;
-    }
-    const timerRef = {};
-    const onAbort = () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
-      reject((signal == null ? void 0 : signal.reason) instanceof Error ? signal.reason : new Error("Request was aborted"));
-    };
-    const timer = setTimeout(() => {
-      signal == null ? void 0 : signal.removeEventListener("abort", onAbort);
-      resolve();
-    }, milliseconds);
-    timerRef.current = timer;
-    signal == null ? void 0 : signal.addEventListener("abort", onAbort, { once: true });
-  }), debug = () => void 0, monotonicNow = () => performance.now(), timerFunctions = {
-    setTimeout: (callback, milliseconds) => {
-      const timer = setTimeout(callback, milliseconds);
-      return () => clearTimeout(timer);
-    }
-  }) {
+  constructor(fetchFunction = fetch, now = Date.now, wait = void 0, debug = () => void 0, monotonicNow = () => performance.now(), timerFunctions = defaultTimerFunctions) {
     this.fetchFunction = fetchFunction;
     this.now = now;
-    this.wait = wait;
+    this.wait = wait != null ? wait : ((milliseconds, signal) => new Promise((resolve, reject) => {
+      if (signal == null ? void 0 : signal.aborted) {
+        reject(signal.reason instanceof Error ? signal.reason : new Error("Request was aborted"));
+        return;
+      }
+      const timerHandle = {};
+      const onAbort = () => {
+        var _a;
+        (_a = timerHandle.cancel) == null ? void 0 : _a.call(timerHandle);
+        reject((signal == null ? void 0 : signal.reason) instanceof Error ? signal.reason : new Error("Request was aborted"));
+      };
+      timerHandle.cancel = this.timerFunctions.setTimeout(() => {
+        signal == null ? void 0 : signal.removeEventListener("abort", onAbort);
+        resolve();
+      }, milliseconds);
+      signal == null ? void 0 : signal.addEventListener("abort", onAbort, { once: true });
+    }));
     this.monotonicNow = monotonicNow;
     this.timerFunctions = timerFunctions;
     this.debug = debug;

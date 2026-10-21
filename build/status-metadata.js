@@ -136,6 +136,19 @@ const statusNames = {
     uk: "\u0428\u0438\u043D\u0430 CAN \u0430\u043A\u0442\u0438\u0432\u043D\u0430",
     "zh-cn": "CAN \u603B\u7EBF\u5DF2\u6FC0\u6D3B"
   },
+  Charging_Port_Lock_Set_Off: {
+    en: "Charging port lock set off",
+    de: "Ladeanschluss entriegelt",
+    ru: "\u0411\u043B\u043E\u043A\u0438\u0440\u043E\u0432\u043A\u0430 \u0437\u0430\u0440\u044F\u0434\u043D\u043E\u0433\u043E \u043F\u043E\u0440\u0442\u0430 \u043E\u0442\u043A\u043B\u044E\u0447\u0435\u043D\u0430",
+    pt: "Bloqueio da porta de carregamento desativado",
+    nl: "Laadpoortvergrendeling uitgeschakeld",
+    fr: "Verrouillage du port de recharge d\xE9sactiv\xE9",
+    it: "Blocco della presa di ricarica disattivato",
+    es: "Bloqueo del puerto de carga desactivado",
+    pl: "Blokada portu \u0142adowania wy\u0142\u0105czona",
+    uk: "\u0411\u043B\u043E\u043A\u0443\u0432\u0430\u043D\u043D\u044F \u0437\u0430\u0440\u044F\u0434\u043D\u043E\u0433\u043E \u043F\u043E\u0440\u0442\u0443 \u0432\u0438\u043C\u043A\u043D\u0435\u043D\u043E",
+    "zh-cn": "\u5145\u7535\u53E3\u9501\u5DF2\u5173\u95ED"
+  },
   currentJourneyDistance: {
     en: "Current journey distance",
     de: "Strecke der aktuellen Fahrt",
