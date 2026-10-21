@@ -10,6 +10,22 @@ export interface VehicleStatusMetadata {
 	unit?: string;
 }
 
+/** ioBroker metadata and optional scaling for one SAIC charging field. */
+export interface ChargingFieldMetadata {
+	/** State value type. */
+	type: 'number' | 'boolean';
+	/** Semantic ioBroker state role. */
+	role: string;
+	/** Physical unit, when known. */
+	unit?: string;
+	/** Multiplier applied to the raw SAIC value. */
+	factor?: number;
+	/** Additive adjustment applied after scaling. */
+	offset?: number;
+	/** Decimal places retained after scaling. */
+	precision?: number;
+}
+
 type LocalizedStatusName = {
 	en: string;
 	de: string;
@@ -147,6 +163,19 @@ const statusNames: Record<string, LocalizedStatusName> = {
 		pl: 'Magistrala CAN aktywna',
 		uk: 'Шина CAN активна',
 		'zh-cn': 'CAN 总线已激活',
+	},
+	Charging_Port_Lock_Set_Off: {
+		en: 'Charging port lock set off',
+		de: 'Ladeanschluss entriegelt',
+		ru: 'Блокировка зарядного порта отключена',
+		pt: 'Bloqueio da porta de carregamento desativado',
+		nl: 'Laadpoortvergrendeling uitgeschakeld',
+		fr: 'Verrouillage du port de recharge désactivé',
+		it: 'Blocco della presa di ricarica disattivato',
+		es: 'Bloqueo del puerto de carga desactivado',
+		pl: 'Blokada portu ładowania wyłączona',
+		uk: 'Блокування зарядного порту вимкнено',
+		'zh-cn': '充电口锁已关闭',
 	},
 	currentJourneyDistance: {
 		en: 'Current journey distance',
@@ -837,6 +866,7 @@ const statusUnits: Record<string, string> = {
 	exteriorTemperature: '°C',
 	extendedData1: '%',
 	gpsAltitude: 'm',
+	gpsHeading: '°',
 	gpsLatitude: '°',
 	gpsLongitude: '°',
 	frontLeftTyrePressure: 'bar',
@@ -864,6 +894,77 @@ const statusScales: Record<string, { factor: number; precision: number }> = {
 	rearRightTyrePressure: { factor: 0.04, precision: 2 },
 	speed: { factor: 0.1, precision: 1 },
 };
+
+const chargingBooleanFields = new Set([
+	'ccuEleccLckCtrlDspCmd',
+	'ccuOffBdChrgrPlugOn',
+	'ccuOnbdChrgrPlugOn',
+	'chargingGunState',
+]);
+
+const chargingFieldMetadata: Record<string, ChargingFieldMetadata> = {
+	bmsPackSOCDsp: { type: 'number', role: 'value.battery', unit: '%', factor: 0.1, precision: 1 },
+	bmsPackCrnt: { type: 'number', role: 'value.current', unit: 'A', factor: -0.05, offset: 1000, precision: 2 },
+	bmsPackVol: { type: 'number', role: 'value.voltage', unit: 'V', factor: 0.25, precision: 1 },
+	bmsEstdElecRng: { type: 'number', role: 'value.distance', unit: 'km' },
+	bmsOnBdChrgTrgtSOCDspCmd: { type: 'number', role: 'value.battery', unit: '%' },
+	chrgngAddedElecRng: { type: 'number', role: 'value.distance', unit: 'km' },
+	chrgngRmnngTime: { type: 'number', role: 'value.interval', unit: 'min' },
+	clstrElecRngToEPT: { type: 'number', role: 'value.distance', unit: 'km' },
+	disChrgngRmnngTime: { type: 'number', role: 'value.interval', unit: 'min' },
+	imcuChrgngEstdElecRng: { type: 'number', role: 'value.distance', unit: 'km' },
+	imcuDschrgngEstdElecRng: { type: 'number', role: 'value.distance', unit: 'km' },
+	imcuVehElecRng: { type: 'number', role: 'value.distance', unit: 'km' },
+	onBdChrgrAltrCrntInptCrnt: { type: 'number', role: 'value.current', unit: 'A' },
+	onBdChrgrAltrCrntInptVol: { type: 'number', role: 'value.voltage', unit: 'V' },
+	chargingDuration: { type: 'number', role: 'value.interval', unit: 'min', factor: 1 / 60, precision: 1 },
+	endTime: { type: 'number', role: 'date', factor: 1000 },
+	fuelRangeElec: { type: 'number', role: 'value.distance', unit: 'km', factor: 0.1, precision: 1 },
+	lastChargeEndingPower: { type: 'number', role: 'value.energy', unit: 'kWh', factor: 0.1, precision: 1 },
+	mileage: { type: 'number', role: 'value.distance', unit: 'km', factor: 0.1, precision: 1 },
+	mileageOfDay: { type: 'number', role: 'value.distance', unit: 'km', factor: 0.1, precision: 1 },
+	mileageSinceLastCharge: { type: 'number', role: 'value.distance', unit: 'km', factor: 0.1, precision: 1 },
+	powerUsageOfDay: { type: 'number', role: 'value.energy', unit: 'kWh', factor: 0.1, precision: 1 },
+	powerUsageSinceLastCharge: { type: 'number', role: 'value.energy', unit: 'kWh', factor: 0.1, precision: 1 },
+	realtimePower: { type: 'number', role: 'value.energy', unit: 'kWh', factor: 0.1, precision: 1 },
+	startTime: { type: 'number', role: 'date', factor: 1000 },
+	totalBatteryCapacity: { type: 'number', role: 'value.energy', unit: 'kWh', factor: 0.1, precision: 1 },
+	workingCurrent: { type: 'number', role: 'value.current', unit: 'A', factor: 0.01, precision: 2 },
+	workingVoltage: { type: 'number', role: 'value.voltage', unit: 'V', factor: 0.01, precision: 2 },
+};
+
+/**
+ * Return known semantics and engineering units for a raw charging field.
+ *
+ * @param key SAIC charging field name.
+ */
+export function getChargingFieldMetadata(key: string): ChargingFieldMetadata {
+	if (chargingBooleanFields.has(key)) {
+		return { type: 'boolean', role: key === 'ccuEleccLckCtrlDspCmd' ? 'indicator' : 'sensor' };
+	}
+	return chargingFieldMetadata[key] ?? { type: 'number', role: 'value' };
+}
+
+/**
+ * Normalize a known charging measurement from its SAIC wire scale.
+ *
+ * @param key SAIC charging field name.
+ * @param value Raw field value.
+ */
+export function normalizeChargingValue(key: string, value: number | string): number | string | boolean {
+	const metadata = getChargingFieldMetadata(key);
+	if (metadata.type === 'boolean') {
+		return value === 1 || value === '1';
+	}
+	if (key === 'bmsOnBdChrgTrgtSOCDspCmd' && typeof value === 'number') {
+		return value >= 1 && value <= 7 ? (value + 3) * 10 : value;
+	}
+	if (typeof value !== 'number' || value === -128 || metadata.factor === undefined) {
+		return value;
+	}
+	const normalized = value * metadata.factor + (metadata.offset ?? 0);
+	return metadata.precision === undefined ? normalized : Number(normalized.toFixed(metadata.precision));
+}
 
 /**
  * Returns the ioBroker metadata for a vehicle status field.
@@ -912,4 +1013,26 @@ export function normalizeVehicleStatusValue(key: string, value: number): number 
 	}
 	const scale = statusScales[key];
 	return scale ? Number((value * scale.factor).toFixed(scale.precision)) : value;
+}
+
+/**
+ * Keep the last known odometer when SAIC temporarily omits its value.
+ *
+ * @param key SAIC vehicle status field name.
+ */
+export function shouldDeleteUnavailableStatusValue(key: string): boolean {
+	return key !== 'mileage';
+}
+
+/**
+ * Prefer live odometer and use the cached value only when live status omits it.
+ *
+ * @param liveValue Odometer from the live status response.
+ * @param cachedValue Odometer from the cached status response.
+ */
+export function resolveOdometerValue(
+	liveValue: number | undefined,
+	cachedValue: number | undefined,
+): number | undefined {
+	return liveValue !== undefined ? liveValue : cachedValue;
 }

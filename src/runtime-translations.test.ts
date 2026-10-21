@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { getRuntimeName, supportedLanguages } from './runtime-translations';
+import { getChargingFieldName, getRuntimeName, supportedLanguages } from './runtime-translations';
 import type { VehicleStatusGroup } from './status-metadata';
 
 describe('runtime command translations', () => {
@@ -35,6 +35,8 @@ describe('runtime command translations', () => {
 			'commandGroup_climate',
 			'commandGroup_heating',
 			'commandGroup_charging',
+			'chargingManagement',
+			'chargeStatus',
 			'commandGroup_schedules',
 			'commandGroup_vehicle',
 			'currentStatus',
@@ -94,6 +96,83 @@ describe('runtime command translations', () => {
 			for (const language of supportedLanguages) {
 				expect(name[language], `${id} (${language})`).to.be.a('string').and.not.empty;
 				expect(name[language], `${id} (${language})`).not.to.equal(id);
+			}
+		}
+	});
+
+	it('uses distinct names for the charging session and charging statistics groups', () => {
+		expect(getRuntimeName('chargingManagement').de).to.equal('Ladevorgang');
+		expect(getRuntimeName('chargingManagement').en).to.equal('Charging session');
+		expect(getRuntimeName('chargeStatus').de).to.equal('Ladestatistik');
+		expect(getRuntimeName('chargeStatus').en).to.equal('Charging statistics');
+	});
+
+	it('provides display names for charging API datapoints', () => {
+		const fields = [
+			'bmsAdpPubChrgSttnDspCmd',
+			'bmsAltngChrgCrntDspCmd',
+			'bmsChrgCtrlDspCmd',
+			'bmsChrgOtptCrntReq',
+			'bmsChrgOtptCrntReqV',
+			'bmsChrgSpRsn',
+			'bmsChrgSts',
+			'bmsDsChrgSpRsn',
+			'bmsEstdElecRng',
+			'bmsOnBdChrgTrgtSOCDspCmd',
+			'bmsPTCHeatReqDspCmd',
+			'bmsPTCHeatResp',
+			'bmsPackCrnt',
+			'bmsPackCrntV',
+			'bmsPackSOCDsp',
+			'bmsPackVol',
+			'bmsReserCtrlDspCmd',
+			'bmsReserSpHourDspCmd',
+			'bmsReserSpMintueDspCmd',
+			'bmsReserStHourDspCmd',
+			'bmsReserStMintueDspCmd',
+			'ccuEleccLckCtrlDspCmd',
+			'ccuOffBdChrgrPlugOn',
+			'ccuOnbdChrgrPlugOn',
+			'chrgngAddedElecRng',
+			'chrgngAddedElecRngV',
+			'chrgngDoorOpenCnd',
+			'chrgngDoorPosSts',
+			'chrgngRmnngTime',
+			'chrgngRmnngTimeV',
+			'chrgngSpdngTime',
+			'chrgngSpdngTimeV',
+			'clstrElecRngToEPT',
+			'disChrgngRmnngTime',
+			'disChrgngRmnngTimeV',
+			'imcuChrgngEstdElecRng',
+			'imcuChrgngEstdElecRngV',
+			'imcuDschrgngEstdElecRng',
+			'imcuDschrgngEstdElecRngV',
+			'imcuVehElecRng',
+			'imcuVehElecRngV',
+			'onBdChrgrAltrCrntInptCrnt',
+			'onBdChrgrAltrCrntInptVol',
+			'chargingDuration',
+			'chargingGunState',
+			'chargingType',
+			'endTime',
+			'fuelRangeElec',
+			'mileage',
+			'mileageOfDay',
+			'mileageSinceLastCharge',
+			'powerUsageOfDay',
+			'powerUsageSinceLastCharge',
+			'realtimePower',
+			'startTime',
+			'totalBatteryCapacity',
+			'workingCurrent',
+			'workingVoltage',
+		];
+		for (const field of fields) {
+			const name = getChargingFieldName(field);
+			for (const language of supportedLanguages) {
+				expect(name[language], `${field} (${language})`).to.be.a('string').and.not.empty;
+				expect(name[language], `${field} (${language})`).not.to.equal(field);
 			}
 		}
 	});

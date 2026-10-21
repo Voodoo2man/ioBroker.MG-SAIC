@@ -18,9 +18,13 @@ var __copyProps = (to, from, except, desc) => {
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var status_metadata_exports = {};
 __export(status_metadata_exports, {
+  getChargingFieldMetadata: () => getChargingFieldMetadata,
   getVehicleStatusGroup: () => getVehicleStatusGroup,
   getVehicleStatusMetadata: () => getVehicleStatusMetadata,
-  normalizeVehicleStatusValue: () => normalizeVehicleStatusValue
+  normalizeChargingValue: () => normalizeChargingValue,
+  normalizeVehicleStatusValue: () => normalizeVehicleStatusValue,
+  resolveOdometerValue: () => resolveOdometerValue,
+  shouldDeleteUnavailableStatusValue: () => shouldDeleteUnavailableStatusValue
 });
 module.exports = __toCommonJS(status_metadata_exports);
 function getVehicleStatusGroup(key) {
@@ -135,6 +139,19 @@ const statusNames = {
     pl: "Magistrala CAN aktywna",
     uk: "\u0428\u0438\u043D\u0430 CAN \u0430\u043A\u0442\u0438\u0432\u043D\u0430",
     "zh-cn": "CAN \u603B\u7EBF\u5DF2\u6FC0\u6D3B"
+  },
+  Charging_Port_Lock_Set_Off: {
+    en: "Charging port lock set off",
+    de: "Ladeanschluss entriegelt",
+    ru: "\u0411\u043B\u043E\u043A\u0438\u0440\u043E\u0432\u043A\u0430 \u0437\u0430\u0440\u044F\u0434\u043D\u043E\u0433\u043E \u043F\u043E\u0440\u0442\u0430 \u043E\u0442\u043A\u043B\u044E\u0447\u0435\u043D\u0430",
+    pt: "Bloqueio da porta de carregamento desativado",
+    nl: "Laadpoortvergrendeling uitgeschakeld",
+    fr: "Verrouillage du port de recharge d\xE9sactiv\xE9",
+    it: "Blocco della presa di ricarica disattivato",
+    es: "Bloqueo del puerto de carga desactivado",
+    pl: "Blokada portu \u0142adowania wy\u0142\u0105czona",
+    uk: "\u0411\u043B\u043E\u043A\u0443\u0432\u0430\u043D\u043D\u044F \u0437\u0430\u0440\u044F\u0434\u043D\u043E\u0433\u043E \u043F\u043E\u0440\u0442\u0443 \u0432\u0438\u043C\u043A\u043D\u0435\u043D\u043E",
+    "zh-cn": "\u5145\u7535\u53E3\u9501\u5DF2\u5173\u95ED"
   },
   currentJourneyDistance: {
     en: "Current journey distance",
@@ -822,6 +839,7 @@ const statusUnits = {
   exteriorTemperature: "\xB0C",
   extendedData1: "%",
   gpsAltitude: "m",
+  gpsHeading: "\xB0",
   gpsLatitude: "\xB0",
   gpsLongitude: "\xB0",
   frontLeftTyrePressure: "bar",
@@ -848,6 +866,64 @@ const statusScales = {
   rearRightTyrePressure: { factor: 0.04, precision: 2 },
   speed: { factor: 0.1, precision: 1 }
 };
+const chargingBooleanFields = /* @__PURE__ */ new Set([
+  "ccuEleccLckCtrlDspCmd",
+  "ccuOffBdChrgrPlugOn",
+  "ccuOnbdChrgrPlugOn",
+  "chargingGunState"
+]);
+const chargingFieldMetadata = {
+  bmsPackSOCDsp: { type: "number", role: "value.battery", unit: "%", factor: 0.1, precision: 1 },
+  bmsPackCrnt: { type: "number", role: "value.current", unit: "A", factor: -0.05, offset: 1e3, precision: 2 },
+  bmsPackVol: { type: "number", role: "value.voltage", unit: "V", factor: 0.25, precision: 1 },
+  bmsEstdElecRng: { type: "number", role: "value.distance", unit: "km" },
+  bmsOnBdChrgTrgtSOCDspCmd: { type: "number", role: "value.battery", unit: "%" },
+  chrgngAddedElecRng: { type: "number", role: "value.distance", unit: "km" },
+  chrgngRmnngTime: { type: "number", role: "value.interval", unit: "min" },
+  clstrElecRngToEPT: { type: "number", role: "value.distance", unit: "km" },
+  disChrgngRmnngTime: { type: "number", role: "value.interval", unit: "min" },
+  imcuChrgngEstdElecRng: { type: "number", role: "value.distance", unit: "km" },
+  imcuDschrgngEstdElecRng: { type: "number", role: "value.distance", unit: "km" },
+  imcuVehElecRng: { type: "number", role: "value.distance", unit: "km" },
+  onBdChrgrAltrCrntInptCrnt: { type: "number", role: "value.current", unit: "A" },
+  onBdChrgrAltrCrntInptVol: { type: "number", role: "value.voltage", unit: "V" },
+  chargingDuration: { type: "number", role: "value.interval", unit: "min", factor: 1 / 60, precision: 1 },
+  endTime: { type: "number", role: "date", factor: 1e3 },
+  fuelRangeElec: { type: "number", role: "value.distance", unit: "km", factor: 0.1, precision: 1 },
+  lastChargeEndingPower: { type: "number", role: "value.energy", unit: "kWh", factor: 0.1, precision: 1 },
+  mileage: { type: "number", role: "value.distance", unit: "km", factor: 0.1, precision: 1 },
+  mileageOfDay: { type: "number", role: "value.distance", unit: "km", factor: 0.1, precision: 1 },
+  mileageSinceLastCharge: { type: "number", role: "value.distance", unit: "km", factor: 0.1, precision: 1 },
+  powerUsageOfDay: { type: "number", role: "value.energy", unit: "kWh", factor: 0.1, precision: 1 },
+  powerUsageSinceLastCharge: { type: "number", role: "value.energy", unit: "kWh", factor: 0.1, precision: 1 },
+  realtimePower: { type: "number", role: "value.energy", unit: "kWh", factor: 0.1, precision: 1 },
+  startTime: { type: "number", role: "date", factor: 1e3 },
+  totalBatteryCapacity: { type: "number", role: "value.energy", unit: "kWh", factor: 0.1, precision: 1 },
+  workingCurrent: { type: "number", role: "value.current", unit: "A", factor: 0.01, precision: 2 },
+  workingVoltage: { type: "number", role: "value.voltage", unit: "V", factor: 0.01, precision: 2 }
+};
+function getChargingFieldMetadata(key) {
+  var _a;
+  if (chargingBooleanFields.has(key)) {
+    return { type: "boolean", role: key === "ccuEleccLckCtrlDspCmd" ? "indicator" : "sensor" };
+  }
+  return (_a = chargingFieldMetadata[key]) != null ? _a : { type: "number", role: "value" };
+}
+function normalizeChargingValue(key, value) {
+  var _a;
+  const metadata = getChargingFieldMetadata(key);
+  if (metadata.type === "boolean") {
+    return value === 1 || value === "1";
+  }
+  if (key === "bmsOnBdChrgTrgtSOCDspCmd" && typeof value === "number") {
+    return value >= 1 && value <= 7 ? (value + 3) * 10 : value;
+  }
+  if (typeof value !== "number" || value === -128 || metadata.factor === void 0) {
+    return value;
+  }
+  const normalized = value * metadata.factor + ((_a = metadata.offset) != null ? _a : 0);
+  return metadata.precision === void 0 ? normalized : Number(normalized.toFixed(metadata.precision));
+}
 function getVehicleStatusMetadata(key) {
   var _a, _b;
   const name = (_a = statusNames[key]) != null ? _a : Object.fromEntries(
@@ -883,10 +959,20 @@ function normalizeVehicleStatusValue(key, value) {
   const scale = statusScales[key];
   return scale ? Number((value * scale.factor).toFixed(scale.precision)) : value;
 }
+function shouldDeleteUnavailableStatusValue(key) {
+  return key !== "mileage";
+}
+function resolveOdometerValue(liveValue, cachedValue) {
+  return liveValue !== void 0 ? liveValue : cachedValue;
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  getChargingFieldMetadata,
   getVehicleStatusGroup,
   getVehicleStatusMetadata,
-  normalizeVehicleStatusValue
+  normalizeChargingValue,
+  normalizeVehicleStatusValue,
+  resolveOdometerValue,
+  shouldDeleteUnavailableStatusValue
 });
 //# sourceMappingURL=status-metadata.js.map

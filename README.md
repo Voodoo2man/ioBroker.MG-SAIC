@@ -37,7 +37,9 @@ The adapter is published on npm but has not yet been added to the ioBroker adapt
 ## Changelog
 ### **WORK IN PROGRESS**
 
-- (Voodoo2man) Improved release automation and removed unpublished version metadata.
+- (Voodoo2man) Improved release automation, updated Node.js release checks, and removed unpublished version metadata.
+- (Voodoo2man) Added charging data
+- (Voodoo2man) Fixed vehicle datapoint units and roles
 
 Older changelog entries are available in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

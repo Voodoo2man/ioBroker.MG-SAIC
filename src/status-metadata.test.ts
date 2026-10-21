@@ -1,7 +1,73 @@
 import { expect } from 'chai';
-import { getVehicleStatusGroup, getVehicleStatusMetadata, normalizeVehicleStatusValue } from './status-metadata';
+import {
+	getVehicleStatusGroup,
+	getVehicleStatusMetadata,
+	getChargingFieldMetadata,
+	normalizeChargingValue,
+	normalizeVehicleStatusValue,
+	resolveOdometerValue,
+	shouldDeleteUnavailableStatusValue,
+} from './status-metadata';
 
 describe('getVehicleStatusMetadata', () => {
+	it('assigns engineering roles and units to known charging measurements', () => {
+		expect(getChargingFieldMetadata('bmsPackSOCDsp')).to.include({
+			type: 'number',
+			role: 'value.battery',
+			unit: '%',
+		});
+		expect(getChargingFieldMetadata('mileageSinceLastCharge')).to.include({
+			role: 'value.distance',
+			unit: 'km',
+		});
+		expect(getChargingFieldMetadata('chrgngRmnngTime')).to.include({
+			role: 'value.interval',
+			unit: 'min',
+		});
+		expect(getChargingFieldMetadata('disChrgngRmnngTime')).to.include({
+			role: 'value.interval',
+			unit: 'min',
+		});
+		expect(getChargingFieldMetadata('onBdChrgrAltrCrntInptCrnt')).to.include({
+			role: 'value.current',
+			unit: 'A',
+		});
+		expect(getChargingFieldMetadata('onBdChrgrAltrCrntInptVol')).to.include({
+			role: 'value.voltage',
+			unit: 'V',
+		});
+		expect(getChargingFieldMetadata('workingCurrent')).to.include({ role: 'value.current', unit: 'A' });
+		expect(getChargingFieldMetadata('workingVoltage')).to.include({ role: 'value.voltage', unit: 'V' });
+		expect(getChargingFieldMetadata('powerUsageSinceLastCharge')).to.include({
+			role: 'value.energy',
+			unit: 'kWh',
+		});
+		expect(getChargingFieldMetadata('realtimePower')).to.include({
+			role: 'value.energy',
+			unit: 'kWh',
+		});
+		expect(getChargingFieldMetadata('lastChargeEndingPower')).to.include({
+			role: 'value.energy',
+			unit: 'kWh',
+		});
+		expect(getChargingFieldMetadata('bmsChrgSts')).to.deep.equal({ type: 'number', role: 'value' });
+	});
+
+	it('converts scaled and encoded charging values before publishing units', () => {
+		expect(normalizeChargingValue('bmsPackSOCDsp', 831)).to.equal(83.1);
+		expect(normalizeChargingValue('bmsOnBdChrgTrgtSOCDspCmd', 7)).to.equal(100);
+		expect(normalizeChargingValue('bmsPackVol', 1707)).to.equal(426.8);
+		expect(normalizeChargingValue('bmsPackCrnt', 19800)).to.equal(10);
+		expect(normalizeChargingValue('chargingDuration', 3600)).to.equal(60);
+		expect(normalizeChargingValue('realtimePower', 725)).to.equal(72.5);
+		expect(normalizeChargingValue('lastChargeEndingPower', 725)).to.equal(72.5);
+		expect(normalizeChargingValue('workingCurrent', 20003)).to.equal(200.03);
+		expect(normalizeChargingValue('workingVoltage', 1776)).to.equal(17.76);
+		expect(normalizeChargingValue('chargingGunState', 1)).to.equal(true);
+		expect(normalizeChargingValue('unscaledField', 42)).to.equal(42);
+		expect(normalizeChargingValue('bmsPackSOCDsp', -128)).to.equal(-128);
+	});
+
 	it('groups status datapoints by vehicle function', () => {
 		expect(getVehicleStatusGroup('speed')).to.equal('driving');
 		expect(getVehicleStatusGroup('driverWindow')).to.equal('access');
@@ -66,6 +132,7 @@ describe('getVehicleStatusMetadata', () => {
 			role: 'value.gps.elevation',
 			unit: 'm',
 		});
+		expect(getVehicleStatusMetadata('gpsHeading').unit).to.equal('°');
 		expect(getVehicleStatusMetadata('gpsLatitude')).to.include({
 			type: 'number',
 			role: 'value.gps.latitude',
@@ -106,6 +173,26 @@ describe('getVehicleStatusMetadata', () => {
 			unit: 'bar',
 		});
 		expect(normalizeVehicleStatusValue('unscaledField', 42)).to.equal(42);
+	});
+
+	it('retains the last known odometer when SAIC omits its value', () => {
+		expect(shouldDeleteUnavailableStatusValue('mileage')).to.equal(false);
+		expect(shouldDeleteUnavailableStatusValue('speed')).to.equal(true);
+	});
+
+	it('uses cached odometer only when live status omits mileage', () => {
+		expect(resolveOdometerValue(1234, 1230)).to.equal(1234);
+		expect(resolveOdometerValue(0, 1230)).to.equal(0);
+		expect(resolveOdometerValue(undefined, 1230)).to.equal(1230);
+		expect(resolveOdometerValue(undefined, undefined)).to.equal(undefined);
+	});
+
+	it('localizes the charging port lock status without changing its raw numeric code', () => {
+		const metadata = getVehicleStatusMetadata('Charging_Port_Lock_Set_Off');
+		expect(metadata.name.en).to.equal('Charging port lock set off');
+		expect(metadata.name.de).to.equal('Ladeanschluss entriegelt');
+		expect(metadata.type).to.equal('number');
+		expect(normalizeVehicleStatusValue('Charging_Port_Lock_Set_Off', 2)).to.equal(2);
 	});
 
 	it('provides localized Home Assistant-style state names', () => {

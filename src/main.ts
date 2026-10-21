@@ -12,11 +12,25 @@ import {
 	type SaicVehicleCommand,
 	type SaicVehicle,
 	type SaicVehicleStatus,
+	type SaicChargingStatus,
 } from './saic-client';
 import { resolveSaicRegion } from './regions';
 import { isRefreshCommand } from './refresh-command';
-import { getVehicleStatusGroup, getVehicleStatusMetadata, normalizeVehicleStatusValue } from './status-metadata';
-import { getRuntimeName } from './runtime-translations';
+import {
+	getVehicleStatusGroup,
+	getVehicleStatusMetadata,
+	getChargingFieldMetadata,
+	normalizeChargingValue,
+	normalizeVehicleStatusValue,
+	resolveOdometerValue,
+	shouldDeleteUnavailableStatusValue,
+} from './status-metadata';
+import { getChargingFieldName, getRuntimeName } from './runtime-translations';
+
+const chargingGroups = [
+	{ source: 'chrgMgmtData', id: 'session', name: 'chargingManagement' },
+	{ source: 'rvsChargeStatus', id: 'statistics', name: 'chargeStatus' },
+] as const;
 
 const vehicleCommands: Array<{ id: SaicVehicleCommand }> = [
 	{ id: 'lock' },
@@ -60,9 +74,9 @@ const settingGroups: Record<string, string> = {
 	climateTemperature: 'climate',
 	chargeTargetSoc: 'charging',
 	chargingCurrentLimit: 'charging',
-	chargingScheduleStart: 'schedules',
-	chargingScheduleEnd: 'schedules',
-	chargingScheduleMode: 'schedules',
+	chargingScheduleStart: 'charging',
+	chargingScheduleEnd: 'charging',
+	chargingScheduleMode: 'charging',
 	batteryHeatingScheduleEnabled: 'schedules',
 	batteryHeatingScheduleStart: 'schedules',
 };
@@ -70,7 +84,7 @@ const settingGroups: Record<string, string> = {
 const actionGroups: Record<SettingAction, string> = {
 	climateTemperatureApply: 'climate',
 	chargingSettingsApply: 'charging',
-	chargingScheduleApply: 'schedules',
+	chargingScheduleApply: 'charging',
 	batteryHeatingScheduleApply: 'schedules',
 };
 
@@ -141,6 +155,16 @@ class MgSaic extends utils.Adapter {
 		await this.extendObjectAsync('info.backend', { common: { name: getRuntimeName('backend') } });
 		await this.extendObjectAsync('info.connection', { common: { name: getRuntimeName('connection') } });
 		await this.extendObjectAsync('info.lastError', { common: { name: getRuntimeName('lastError') } });
+		await this.setObjectNotExistsAsync('commands', {
+			type: 'channel',
+			common: { name: getRuntimeName('commands') },
+			native: {},
+		});
+		await this.setObjectAsync('vehicles', {
+			type: 'folder',
+			common: { name: 'Vehicles' },
+			native: {},
+		});
 		await this.setObjectNotExistsAsync('commands.refresh', {
 			type: 'state',
 			common: {
@@ -306,6 +330,22 @@ class MgSaic extends utils.Adapter {
 							break;
 						}
 					}
+					try {
+						const charging = await this.client.getVehicleChargingStatus(
+							this.loginOptions,
+							this.accessToken,
+							vehicle.vin,
+							this.abortController.signal,
+						);
+						await this.createVehicleChargingObjects(vehicle.vin, charging);
+					} catch (error) {
+						if (this.stopping) {
+							break;
+						}
+						const details = error instanceof Error ? error.message : 'Unknown charging data error';
+						statusErrors.push(`Charging data request failed for ${vehicle.vin}: ${details}`);
+						this.log.warn(`Could not retrieve charging data for vehicle ${vehicle.vin}: ${details}`);
+					}
 					let status: SaicVehicleStatus;
 					try {
 						this.log.debug(`Refreshing live status for ${vehicle.vin}`);
@@ -395,6 +435,33 @@ class MgSaic extends utils.Adapter {
 					if (!isVehicleStatusNotOlder(status.statusTime, this.lastStatusTimes.get(vehicle.vin))) {
 						statusErrors.push(`Ignored older live status for ${vehicle.vin}`);
 						continue;
+					}
+					if (status.basicVehicleStatus.mileage === undefined) {
+						try {
+							const cachedStatus = await this.client.getCachedVehicleStatus(
+								this.loginOptions,
+								this.accessToken,
+								vehicle.vin,
+								this.abortController.signal,
+							);
+							const cachedMileage = cachedStatus.basicVehicleStatus.mileage;
+							const mileage = resolveOdometerValue(undefined, cachedMileage);
+							if (mileage !== undefined) {
+								status = {
+									...status,
+									basicVehicleStatus: { ...status.basicVehicleStatus, mileage },
+								};
+								this.log.debug(
+									`Used cached odometer for ${vehicle.vin} because live status omitted mileage`,
+								);
+							}
+						} catch (cacheError) {
+							if (this.stopping) {
+								break;
+							}
+							const details = cacheError instanceof Error ? cacheError.message : 'Unknown cache error';
+							this.log.debug(`Could not retrieve cached odometer for ${vehicle.vin}: ${details}`);
+						}
 					}
 					try {
 						this.log.debug(
@@ -685,7 +752,7 @@ class MgSaic extends utils.Adapter {
 			return;
 		}
 
-		const values: Record<string, number> = { ...status.basicVehicleStatus };
+		const values: Record<string, number | undefined> = { ...status.basicVehicleStatus };
 		if (status.statusTime !== undefined) {
 			values.statusTime = status.statusTime;
 		}
@@ -699,6 +766,18 @@ class MgSaic extends utils.Adapter {
 			}
 			const group = getVehicleStatusGroup(key);
 			const groupId = `${statusId}.${group}`;
+			const stateId = `${groupId}.${key}`;
+			if (value === undefined) {
+				if (shouldDeleteUnavailableStatusValue(key)) {
+					await this.delObjectAsync(stateId);
+				} else {
+					const previousState = await this.getStateAsync(stateId);
+					if (previousState?.val === null) {
+						await this.delObjectAsync(stateId);
+					}
+				}
+				continue;
+			}
 			await this.setObjectNotExistsAsync(groupId, {
 				type: 'channel',
 				common: { name: getRuntimeName(group) },
@@ -709,7 +788,6 @@ class MgSaic extends utils.Adapter {
 				return;
 			}
 			const metadata = getVehicleStatusMetadata(key);
-			const stateId = `${groupId}.${key}`;
 			const common = {
 				name: metadata.name,
 				type: metadata.type,
@@ -739,6 +817,69 @@ class MgSaic extends utils.Adapter {
 				return;
 			}
 			await this.delObjectAsync(`${statusId}.${key}`);
+		}
+	}
+
+	private async createVehicleChargingObjects(vin: string, charging: SaicChargingStatus): Promise<void> {
+		await this.ensureVehicleChargingGroups(vin);
+		const rootId = `vehicles.${vin}.status.charging`;
+		for (const { source, id } of chargingGroups) {
+			const groupId = `${rootId}.${id}`;
+			for (const [field, value] of Object.entries(charging[source])) {
+				if (this.stopping) {
+					return;
+				}
+				const stateId = `${groupId}.${field}`;
+				if (value === undefined) {
+					await this.delObjectAsync(stateId);
+					continue;
+				}
+				const metadata = getChargingFieldMetadata(field);
+				const common: ioBroker.StateCommon = {
+					name: getChargingFieldName(field),
+					type: metadata.type === 'boolean' ? 'boolean' : typeof value === 'string' ? 'string' : 'number',
+					role: typeof value === 'string' ? 'text' : metadata.role,
+					read: true,
+					write: false,
+				};
+				if (metadata.unit) {
+					common.unit = metadata.unit;
+				}
+				await this.setObjectNotExistsAsync(stateId, { type: 'state', common, native: {} });
+				await this.extendObjectAsync(stateId, { common });
+				await this.setStateAsync(stateId, {
+					val: normalizeChargingValue(field, value),
+					ack: true,
+				});
+			}
+		}
+		await this.delObjectAsync(`vehicles.${vin}.charging`, { recursive: true });
+	}
+
+	private async ensureVehicleChargingGroups(vin: string): Promise<void> {
+		const statusId = `vehicles.${vin}.status`;
+		const rootId = `${statusId}.charging`;
+		await this.setObjectNotExistsAsync(statusId, {
+			type: 'channel',
+			common: { name: getRuntimeName('currentStatus') },
+			native: {},
+		});
+		await this.setObjectNotExistsAsync(rootId, {
+			type: 'channel',
+			common: { name: getRuntimeName('commandGroup_charging') },
+			native: {},
+		});
+		await this.extendObjectAsync(rootId, { common: { name: getRuntimeName('commandGroup_charging') } });
+		for (const { source, id, name } of chargingGroups) {
+			const groupId = `${rootId}.${id}`;
+			const groupName = getRuntimeName(name);
+			await this.setObjectNotExistsAsync(groupId, {
+				type: 'channel',
+				common: { name: groupName },
+				native: {},
+			});
+			await this.extendObjectAsync(groupId, { common: { name: groupName } });
+			await this.delObjectAsync(`${rootId}.${source}`, { recursive: true });
 		}
 	}
 
@@ -811,6 +952,7 @@ class MgSaic extends utils.Adapter {
 		if (this.stopping) {
 			return;
 		}
+		await this.ensureVehicleChargingGroups(vehicle.vin);
 		const commandsId = `${deviceId}.commands`;
 		await this.setObjectNotExistsAsync(commandsId, {
 			type: 'channel',
@@ -907,13 +1049,13 @@ class MgSaic extends utils.Adapter {
 			{
 				id: 'chargingScheduleStart',
 				type: 'string',
-				role: 'value.time',
+				role: 'text',
 				def: '00:00',
 			},
 			{
 				id: 'chargingScheduleEnd',
 				type: 'string',
-				role: 'value.time',
+				role: 'text',
 				def: '06:00',
 			},
 			{
@@ -934,7 +1076,7 @@ class MgSaic extends utils.Adapter {
 			{
 				id: 'batteryHeatingScheduleStart',
 				type: 'string',
-				role: 'value.time',
+				role: 'text',
 				def: '00:00',
 			},
 		];
@@ -943,6 +1085,9 @@ class MgSaic extends utils.Adapter {
 			const legacyStateId = `${commandsId}.${setting.id}`;
 			const stateObject = await this.getObjectAsync(stateId);
 			const legacyState = await this.getStateAsync(legacyStateId);
+			const previousScheduleState = setting.id.startsWith('chargingSchedule')
+				? await this.getStateAsync(`${commandsId}.schedules.${setting.id}`)
+				: null;
 			await this.setObjectNotExistsAsync(stateId, {
 				type: 'state',
 				common: {
@@ -962,7 +1107,10 @@ class MgSaic extends utils.Adapter {
 			});
 			const currentState = await this.getStateAsync(stateId);
 			if (!currentState || currentState.val === null) {
-				await this.setStateAsync(stateId, { val: legacyState?.val ?? setting.def, ack: true });
+				await this.setStateAsync(stateId, {
+					val: legacyState?.val ?? previousScheduleState?.val ?? setting.def,
+					ack: true,
+				});
 			} else if (typeof currentState.val === 'number' && stateObject?.common.unit !== setting.unit) {
 				if (setting.id === 'chargeTargetSoc' && currentState.val >= 1 && currentState.val <= 7) {
 					await this.setStateAsync(stateId, { val: (currentState.val + 3) * 10, ack: true });
@@ -997,6 +1145,14 @@ class MgSaic extends utils.Adapter {
 			});
 			await this.setStateAsync(actionId, { val: false, ack: true });
 			await this.delObjectAsync(`${commandsId}.${action.id}`);
+		}
+		for (const id of [
+			'chargingScheduleStart',
+			'chargingScheduleEnd',
+			'chargingScheduleMode',
+			'chargingScheduleApply',
+		]) {
+			await this.delObjectAsync(`${commandsId}.schedules.${id}`);
 		}
 		for (const command of vehicleCommands) {
 			await this.delObjectAsync(`${commandsId}.${command.id}`);

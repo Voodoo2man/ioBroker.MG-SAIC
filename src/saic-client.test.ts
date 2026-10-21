@@ -278,11 +278,14 @@ describe('SaicApiClient vehicle status', () => {
 				batteryVoltage: 142,
 				extendedData1: 63,
 				fuelLevelPrc: 0,
+				mileage: undefined,
 				remoteClimateStatus: 2,
 				vehicleAlarmStatus: 1,
 				wheelTyreMonitorStatus: 2,
 				newSaicStatusValue: 17,
 				unexpectedValue: 5,
+				lockStatus: undefined,
+				gpsUnavailable: undefined,
 				gpsAltitude: 18,
 				gpsLatitude: 51.5,
 				gpsLongitude: -0.12,
@@ -1342,5 +1345,88 @@ describe('SaicApiClient vehicle status', () => {
 			expect((error as Error).message).to.contain('getaddrinfo ENOTFOUND gateway.example');
 		}
 		expect(callCount).to.equal(5);
+	});
+});
+
+describe('SaicApiClient charging status', () => {
+	const options = {
+		baseUrl: 'https://gateway-mg-eu.soimt.com/api.app/v1/',
+		regionCode: 'eu',
+		tenantId: '459771',
+		accountType: 'email' as const,
+		accountIdentifier: 'driver@example.com',
+		password: 'test-password',
+	};
+
+	it('requests charging data with a hashed VIN and filters unavailable values', async () => {
+		let requestUrl: URL | undefined;
+		let requestInit: RequestInit | undefined;
+		const fetchFunction: typeof fetch = (input, init) => {
+			requestUrl = input instanceof URL ? input : new URL(input instanceof Request ? input.url : input);
+			requestInit = init;
+			return Promise.resolve(
+				new Response(
+					JSON.stringify({
+						code: 0,
+						data: {
+							chrgMgmtData: { bmsChrgSts: 1, ccuEleccLckCtrlDspCmd: 1, missing: -128 },
+							rvsChargeStatus: { chargingGunState: 2, chargingPileID: 'pile-7' },
+						},
+					}),
+				),
+			);
+		};
+		const client = new SaicApiClient(fetchFunction, () => 1_700_000_000_123);
+
+		expect(await client.getVehicleChargingStatus(options, 'test-access-token', 'LSJWH4099NS012345')).to.deep.equal({
+			chrgMgmtData: { bmsChrgSts: 1, ccuEleccLckCtrlDspCmd: 1, missing: undefined },
+			rvsChargeStatus: { chargingGunState: 2, chargingPileID: 'pile-7' },
+		});
+		expect(requestUrl?.pathname).to.equal('/api.app/v1/vehicle/charging/mgmtData');
+		expect(requestUrl?.searchParams.get('vin')).to.equal(
+			createHash('sha256').update('LSJWH4099NS012345').digest('hex'),
+		);
+		expect(requestInit?.method).to.equal('GET');
+		expect(new Headers(requestInit?.headers).get('event-id')).to.equal('0');
+		expect(new Headers(requestInit?.headers).get('blade-auth')).to.equal('test-access-token');
+	});
+
+	it('continues a successful empty response using the returned event id', async () => {
+		const eventIds: string[] = [];
+		let callCount = 0;
+		const fetchFunction: typeof fetch = (_input, init) => {
+			callCount++;
+			eventIds.push(new Headers(init?.headers).get('event-id') ?? 'missing');
+			if (callCount === 1) {
+				return Promise.resolve(
+					new Response(JSON.stringify({ code: 0, message: 'success' }), {
+						headers: { 'event-id': 'charging-event-42' },
+					}),
+				);
+			}
+			return Promise.resolve(
+				new Response(
+					JSON.stringify({
+						code: 0,
+						data: {
+							chrgMgmtData: { bmsChrgSts: 1 },
+							rvsChargeStatus: { chargingGunState: 2 },
+						},
+					}),
+				),
+			);
+		};
+		const client = new SaicApiClient(
+			fetchFunction,
+			() => 1_700_000_000_123,
+			() => Promise.resolve(),
+		);
+
+		expect(await client.getVehicleChargingStatus(options, 'test-access-token', 'LSJWH4095RN166487')).to.deep.equal({
+			chrgMgmtData: { bmsChrgSts: 1 },
+			rvsChargeStatus: { chargingGunState: 2 },
+		});
+		expect(callCount).to.equal(2);
+		expect(eventIds).to.deep.equal(['0', 'charging-event-42']);
 	});
 });

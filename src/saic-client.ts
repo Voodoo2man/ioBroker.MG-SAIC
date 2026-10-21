@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { clearTimeout as cancelTimeout, setTimeout as scheduleTimeout } from 'node:timers';
 import {
 	createSaicRequestSignature,
 	decryptSaicResponseBody,
@@ -102,7 +103,15 @@ export interface SaicVehicleStatus {
 	/** Online flag returned by SAIC's cached status endpoint. */
 	onlineStatus?: number;
 	/** Numeric basic vehicle status values, including fields added by SAIC. */
-	basicVehicleStatus: Record<string, number>;
+	basicVehicleStatus: Record<string, number | undefined>;
+}
+
+/** Raw charging data returned by SAIC's charging-management endpoint. */
+export interface SaicChargingStatus {
+	/** Numeric or textual fields returned in chrgMgmtData. */
+	chrgMgmtData: Record<string, number | string | undefined>;
+	/** Numeric or textual fields returned in rvsChargeStatus. */
+	rvsChargeStatus: Record<string, number | string | undefined>;
 }
 
 /** Supported remote actions exposed by this adapter. */
@@ -179,6 +188,13 @@ type TimerFunctions = {
 	setTimeout: (callback: () => void, milliseconds: number) => () => void;
 };
 
+const defaultTimerFunctions: TimerFunctions = {
+	setTimeout: (callback, milliseconds) => {
+		const timer = scheduleTimeout(callback, milliseconds);
+		return () => cancelTimeout(timer);
+	},
+};
+
 interface SaicApiEnvelope {
 	code?: number | string;
 	message?: string;
@@ -187,6 +203,8 @@ interface SaicApiEnvelope {
 		expires_in?: number;
 		vinList?: unknown;
 		basicVehicleStatus?: unknown;
+		chrgMgmtData?: unknown;
+		rvsChargeStatus?: unknown;
 		gpsPosition?: unknown;
 		statusTime?: unknown;
 		onlineStatus?: unknown;
@@ -257,38 +275,32 @@ export class SaicApiClient {
 	public constructor(
 		fetchFunction: FetchFunction = fetch,
 		now: () => number = Date.now,
-		wait: WaitFunction = (milliseconds, signal) =>
-			new Promise((resolve, reject) => {
-				if (signal?.aborted) {
-					reject(signal.reason instanceof Error ? signal.reason : new Error('Request was aborted'));
-					return;
-				}
-				const timerRef: { current?: NodeJS.Timeout } = {};
-				const onAbort = (): void => {
-					if (timerRef.current) {
-						clearTimeout(timerRef.current);
-					}
-					reject(signal?.reason instanceof Error ? signal.reason : new Error('Request was aborted'));
-				};
-				const timer = setTimeout(() => {
-					signal?.removeEventListener('abort', onAbort);
-					resolve();
-				}, milliseconds);
-				timerRef.current = timer;
-				signal?.addEventListener('abort', onAbort, { once: true });
-			}),
+		wait: WaitFunction | undefined = undefined,
 		debug: (message: string) => void = () => undefined,
 		monotonicNow: () => number = () => performance.now(),
-		timerFunctions: TimerFunctions = {
-			setTimeout: (callback, milliseconds) => {
-				const timer = setTimeout(callback, milliseconds);
-				return () => clearTimeout(timer);
-			},
-		},
+		timerFunctions: TimerFunctions = defaultTimerFunctions,
 	) {
 		this.fetchFunction = fetchFunction;
 		this.now = now;
-		this.wait = wait;
+		this.wait =
+			wait ??
+			((milliseconds, signal) =>
+				new Promise((resolve, reject) => {
+					if (signal?.aborted) {
+						reject(signal.reason instanceof Error ? signal.reason : new Error('Request was aborted'));
+						return;
+					}
+					const timerHandle: { cancel?: () => void } = {};
+					const onAbort = (): void => {
+						timerHandle.cancel?.();
+						reject(signal?.reason instanceof Error ? signal.reason : new Error('Request was aborted'));
+					};
+					timerHandle.cancel = this.timerFunctions.setTimeout(() => {
+						signal?.removeEventListener('abort', onAbort);
+						resolve();
+					}, milliseconds);
+					signal?.addEventListener('abort', onAbort, { once: true });
+				}));
 		this.monotonicNow = monotonicNow;
 		this.timerFunctions = timerFunctions;
 		this.debug = debug;
@@ -563,6 +575,135 @@ export class SaicApiClient {
 	): Promise<SaicVehicleStatus> {
 		this.debug(`Cached status request for ${vin}`);
 		return this.requestVehicleStatus(options, accessToken, vin, '/vehicle/status/cache', false, signal);
+	}
+
+	/**
+	 * Retrieve charging-management values reported by SAIC.
+	 *
+	 * @param options Account region and tenant settings.
+	 * @param accessToken Token returned by {@link login}.
+	 * @param vin Vehicle identification number.
+	 * @param signal Optional caller cancellation signal.
+	 */
+	public async getVehicleChargingStatus(
+		options: SaicLoginOptions,
+		accessToken: string,
+		vin: string,
+		signal?: AbortSignal,
+	): Promise<SaicChargingStatus> {
+		const requestPath = '/vehicle/charging/mgmtData';
+		const query = new URLSearchParams({ vin: createHash('sha256').update(vin, 'utf8').digest('hex') });
+		const pathAndQuery = `${requestPath}?${query.toString()}`;
+		const contentType = 'application/json';
+		const baseUrl = options.baseUrl.endsWith('/') ? options.baseUrl : `${options.baseUrl}/`;
+		const requestUrl = new URL(`${requestPath.slice(1)}?${query.toString()}`, baseUrl);
+		const deadline = this.monotonicNow() + 30_000;
+		let eventId = '0';
+		for (let requestCount = 0; requestCount < 11; requestCount++) {
+			if (signal?.aborted) {
+				throw signal.reason;
+			}
+			if (this.monotonicNow() >= deadline) {
+				throw new Error('SAIC charging status timed out while waiting for vehicle data');
+			}
+			const timestamp = String(this.now());
+			const headers: Record<string, string> = {
+				Accept: 'application/json',
+				'Accept-Encoding': 'gzip',
+				'Content-Type': `${contentType};charset=utf-8`,
+				'ORIGINAL-CONTENT-TYPE': contentType,
+				'APP-CONTENT-ENCRYPTED': '1',
+				'APP-LANGUAGE-TYPE': 'en',
+				'APP-SEND-DATE': timestamp,
+				'APP-VERIFICATION-STRING': createSaicRequestSignature(
+					pathAndQuery,
+					options.tenantId,
+					accessToken,
+					timestamp,
+					contentType,
+					'',
+				),
+				REGION: options.regionCode,
+				'tenant-id': options.tenantId,
+				'User-Type': 'app',
+				'User-Agent': 'Europe/2.1.0 (iPad; iOS 18.5; Scale/2.00)',
+				'blade-auth': accessToken,
+				'event-id': eventId,
+			};
+			const result = await this.fetchResponse(
+				requestUrl,
+				{ method: 'GET', headers },
+				Math.max(1, Math.min(5_000, deadline - this.monotonicNow())),
+				signal,
+			);
+			if (!result.response.ok) {
+				throw new SaicHttpError(
+					`SAIC charging status failed with HTTP status ${result.response.status}`,
+					result.response.status,
+				);
+			}
+			const decodedBody = this.decodeResponseBody(result.response, result.body, 'charging status');
+			let envelope: SaicApiEnvelope;
+			try {
+				envelope = JSON.parse(decodedBody) as SaicApiEnvelope;
+			} catch {
+				throw new Error('SAIC charging status returned an invalid response');
+			}
+			const returnCode = Number(envelope.code);
+			const nextEventId = result.response.headers.get('event-id');
+			this.debug(
+				`GET ${requestPath} for ${vin} returned SAIC code ${String(envelope.code)}, data keys: ${Object.keys(envelope.data ?? {}).join(', ') || 'none'}, next event-id: ${nextEventId ?? 'none'}`,
+			);
+			if (returnCode === 401 || returnCode === 403) {
+				throw new SaicHttpError(`SAIC rejected charging status with code ${returnCode}`, returnCode);
+			}
+			if (
+				![2, 3, 7].includes(returnCode) &&
+				((Boolean(nextEventId) && envelope.data === undefined) || (returnCode !== 0 && eventId !== '0'))
+			) {
+				if (this.monotonicNow() >= deadline) {
+					throw new Error(
+						envelope.message || 'SAIC charging status timed out while waiting for vehicle data',
+					);
+				}
+				await this.wait(Math.min(3_000, Math.max(0, deadline - this.monotonicNow())), signal);
+				if (nextEventId) {
+					eventId = nextEventId;
+				}
+				continue;
+			}
+			if (returnCode !== 0) {
+				throw new Error(envelope.message || `SAIC charging status failed with code ${returnCode}`);
+			}
+			const chargingData = envelope.data;
+			if (!chargingData || typeof chargingData !== 'object' || Array.isArray(chargingData)) {
+				throw new Error(
+					`SAIC charging status response did not contain data (code: ${String(envelope.code)}, event-id: ${nextEventId ?? 'none'})`,
+				);
+			}
+			const parseFields = (value: unknown): Record<string, number | string | undefined> => {
+				if (!value || typeof value !== 'object' || Array.isArray(value)) {
+					return {};
+				}
+				return Object.fromEntries(
+					Object.entries(value as Record<string, unknown>).map(([field, raw]) => [
+						field,
+						typeof raw === 'number' && Number.isFinite(raw) && raw !== -128
+							? raw
+							: typeof raw === 'string' && raw.length > 0
+								? raw
+								: undefined,
+					]),
+				);
+			};
+			const chrgMgmtData = parseFields(chargingData.chrgMgmtData);
+			const rvsChargeStatus = parseFields(chargingData.rvsChargeStatus);
+			if (Object.keys(chrgMgmtData).length === 0 && Object.keys(rvsChargeStatus).length === 0) {
+				throw new Error('SAIC charging status response contained no charging fields');
+			}
+			return { chrgMgmtData, rvsChargeStatus };
+		}
+		throw new Error('SAIC charging status event polling exceeded its request limit');
 	}
 
 	/**
@@ -1170,7 +1311,7 @@ export class SaicApiClient {
 		}
 
 		const rawStatus = envelope.data.basicVehicleStatus as Record<string, unknown>;
-		const basicVehicleStatus: Record<string, number> = {};
+		const basicVehicleStatus: Record<string, number | undefined> = {};
 		const acceptedFields: string[] = [];
 		const ignoredFields: string[] = [];
 		for (const [field, value] of Object.entries(rawStatus)) {
@@ -1178,6 +1319,7 @@ export class SaicApiClient {
 				basicVehicleStatus[field] = value;
 				acceptedFields.push(field);
 			} else {
+				basicVehicleStatus[field] = undefined;
 				ignoredFields.push(field);
 			}
 		}
@@ -1189,15 +1331,16 @@ export class SaicApiClient {
 				for (const [field, value] of Object.entries(wayPointRecord)) {
 					if (field === 'position' && value && typeof value === 'object' && !Array.isArray(value)) {
 						for (const [positionField, positionValue] of Object.entries(value as Record<string, unknown>)) {
+							const statusField = `gps${positionField[0].toUpperCase()}${positionField.slice(1)}`;
 							if (
 								typeof positionValue === 'number' &&
 								Number.isFinite(positionValue) &&
 								positionValue !== -128
 							) {
-								const statusField = `gps${positionField[0].toUpperCase()}${positionField.slice(1)}`;
 								basicVehicleStatus[statusField] = positionValue;
 								acceptedFields.push(statusField);
 							} else {
+								basicVehicleStatus[statusField] = undefined;
 								ignoredFields.push(`gpsPosition.wayPoint.position.${positionField}`);
 							}
 						}
@@ -1209,6 +1352,9 @@ export class SaicApiClient {
 						basicVehicleStatus[statusField] = value;
 						acceptedFields.push(statusField);
 					} else {
+						const statusField =
+							field === 'speed' ? 'speed' : `gps${field[0].toUpperCase()}${field.slice(1)}`;
+						basicVehicleStatus[statusField] = undefined;
 						ignoredFields.push(`gpsPosition.wayPoint.${field}`);
 					}
 				}

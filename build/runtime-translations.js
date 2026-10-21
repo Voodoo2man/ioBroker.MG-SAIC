@@ -18,6 +18,7 @@ var __copyProps = (to, from, except, desc) => {
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var runtime_translations_exports = {};
 __export(runtime_translations_exports, {
+  getChargingFieldName: () => getChargingFieldName,
   getRuntimeName: () => getRuntimeName,
   supportedLanguages: () => supportedLanguages
 });
@@ -153,6 +154,32 @@ const runtimeNames = {
     pl: "\u0141adowanie",
     uk: "\u0417\u0430\u0440\u044F\u0434\u0436\u0430\u043D\u043D\u044F",
     "zh-cn": "\u5145\u7535"
+  },
+  chargingManagement: {
+    en: "Charging session",
+    de: "Ladevorgang",
+    ru: "\u041F\u0440\u043E\u0446\u0435\u0441\u0441 \u0437\u0430\u0440\u044F\u0434\u043A\u0438",
+    pt: "Sess\xE3o de carregamento",
+    nl: "Laadsessie",
+    fr: "Session de recharge",
+    it: "Sessione di ricarica",
+    es: "Sesi\xF3n de carga",
+    pl: "Sesja \u0142adowania",
+    uk: "\u0421\u0435\u0430\u043D\u0441 \u0437\u0430\u0440\u044F\u0434\u0436\u0430\u043D\u043D\u044F",
+    "zh-cn": "\u5145\u7535\u4F1A\u8BDD"
+  },
+  chargeStatus: {
+    en: "Charging statistics",
+    de: "Ladestatistik",
+    ru: "\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043A\u0430 \u0437\u0430\u0440\u044F\u0434\u043A\u0438",
+    pt: "Estat\xEDsticas de carregamento",
+    nl: "Laadstatistieken",
+    fr: "Statistiques de recharge",
+    it: "Statistiche di ricarica",
+    es: "Estad\xEDsticas de carga",
+    pl: "Statystyki \u0142adowania",
+    uk: "\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043A\u0430 \u0437\u0430\u0440\u044F\u0434\u0436\u0430\u043D\u043D\u044F",
+    "zh-cn": "\u5145\u7535\u7EDF\u8BA1"
   },
   commandGroup_schedules: {
     en: "Schedules",
@@ -935,6 +962,72 @@ const runtimeNames = {
     "zh-cn": "\u5E94\u7528\u7535\u6C60\u52A0\u70ED\u8BA1\u5212"
   }
 };
+const chargingFieldNames = {
+  bmsAdpPubChrgSttnDspCmd: { en: "Public charging station status", de: "Status der \xF6ffentlichen Ladestation" },
+  bmsAltngChrgCrntDspCmd: { en: "AC charging current setting", de: "Einstellung des AC-Ladestroms" },
+  bmsChrgCtrlDspCmd: { en: "Charging control status", de: "Ladesteuerungsstatus" },
+  bmsChrgOtptCrntReq: { en: "Requested charging output current", de: "Angeforderter Ladestrom" },
+  bmsChrgOtptCrntReqV: { en: "Charging output current validity", de: "G\xFCltigkeit des angeforderten Ladestroms" },
+  bmsChrgSpRsn: { en: "Charging stop reason", de: "Grund f\xFCr Ladestopp" },
+  bmsChrgSts: { en: "Charging status", de: "Ladestatus" },
+  bmsDsChrgSpRsn: { en: "Discharging stop reason", de: "Grund f\xFCr Entladestopp" },
+  bmsEstdElecRng: { en: "Estimated electric range", de: "Gesch\xE4tzte elektrische Reichweite" },
+  bmsOnBdChrgTrgtSOCDspCmd: { en: "Charging target state of charge", de: "Ladeziel (Ladezustand)" },
+  bmsPTCHeatReqDspCmd: { en: "Battery heater request", de: "Anforderung Batterieheizung" },
+  bmsPTCHeatResp: { en: "Battery heater response", de: "R\xFCckmeldung Batterieheizung" },
+  bmsPackCrnt: { en: "Battery pack current", de: "Batteriestrom" },
+  bmsPackCrntV: { en: "Battery current validity", de: "G\xFCltigkeit des Batteriestroms" },
+  bmsPackSOCDsp: { en: "Battery state of charge", de: "Batterie-Ladezustand" },
+  bmsPackVol: { en: "Battery pack voltage", de: "Batteriespannung" },
+  bmsReserCtrlDspCmd: { en: "Charging schedule control", de: "Steuerung des Ladezeitplans" },
+  bmsReserSpHourDspCmd: { en: "Scheduled charging end hour", de: "Stunde des geplanten Ladeendes" },
+  bmsReserSpMintueDspCmd: { en: "Scheduled charging end minute", de: "Minute des geplanten Ladeendes" },
+  bmsReserStHourDspCmd: { en: "Scheduled charging start hour", de: "Stunde des geplanten Ladestarts" },
+  bmsReserStMintueDspCmd: { en: "Scheduled charging start minute", de: "Minute des geplanten Ladestarts" },
+  ccuEleccLckCtrlDspCmd: { en: "Charging port lock", de: "Ladeanschlussverriegelung" },
+  ccuOffBdChrgrPlugOn: { en: "DC charger connected", de: "DC-Ladeger\xE4t verbunden" },
+  ccuOnbdChrgrPlugOn: { en: "AC charger connected", de: "AC-Ladeger\xE4t verbunden" },
+  chrgngAddedElecRng: { en: "Added electric range", de: "Hinzugewonnene elektrische Reichweite" },
+  chrgngAddedElecRngV: { en: "Added range validity", de: "G\xFCltigkeit der hinzugewonnenen Reichweite" },
+  chrgngDoorOpenCnd: { en: "Charging door open condition", de: "Zustand der ge\xF6ffneten Ladeklappe" },
+  chrgngDoorPosSts: { en: "Charging door position", de: "Position der Ladeklappe" },
+  chrgngRmnngTime: { en: "Charging time remaining", de: "Verbleibende Ladezeit" },
+  chrgngRmnngTimeV: { en: "Remaining charging time validity", de: "G\xFCltigkeit der verbleibenden Ladezeit" },
+  chrgngSpdngTime: { en: "Scheduled charging duration", de: "Geplante Ladedauer" },
+  chrgngSpdngTimeV: { en: "Scheduled charging duration validity", de: "G\xFCltigkeit der geplanten Ladedauer" },
+  clstrElecRngToEPT: { en: "Dashboard electric range", de: "Elektrische Reichweite im Kombiinstrument" },
+  disChrgngRmnngTime: { en: "Discharging time remaining", de: "Verbleibende Entladezeit" },
+  disChrgngRmnngTimeV: { en: "Remaining discharging time validity", de: "G\xFCltigkeit der verbleibenden Entladezeit" },
+  imcuChrgngEstdElecRng: { en: "Estimated charging range", de: "Gesch\xE4tzte Reichweite beim Laden" },
+  imcuChrgngEstdElecRngV: {
+    en: "Estimated charging range validity",
+    de: "G\xFCltigkeit der gesch\xE4tzten Laderreichweite"
+  },
+  imcuDschrgngEstdElecRng: { en: "Estimated discharging range", de: "Gesch\xE4tzte Reichweite beim Entladen" },
+  imcuDschrgngEstdElecRngV: {
+    en: "Estimated discharging range validity",
+    de: "G\xFCltigkeit der gesch\xE4tzten Entladereichweite"
+  },
+  imcuVehElecRng: { en: "Calculated electric range", de: "Berechnete elektrische Reichweite" },
+  imcuVehElecRngV: { en: "Calculated range validity", de: "G\xFCltigkeit der berechneten Reichweite" },
+  onBdChrgrAltrCrntInptCrnt: { en: "On-board charger input current", de: "Eingangsstrom des Bordladeger\xE4ts" },
+  onBdChrgrAltrCrntInptVol: { en: "On-board charger input voltage", de: "Eingangsspannung des Bordladeger\xE4ts" },
+  chargingDuration: { en: "Charging duration", de: "Ladedauer" },
+  chargingGunState: { en: "Charging connector state", de: "Ladesteckerstatus" },
+  chargingType: { en: "Charging type", de: "Ladeart" },
+  endTime: { en: "Charge end time", de: "Ladeende" },
+  fuelRangeElec: { en: "Electric range", de: "Elektrische Reichweite" },
+  mileage: { en: "Odometer", de: "Kilometerstand" },
+  mileageOfDay: { en: "Distance today", de: "Tageskilometer" },
+  mileageSinceLastCharge: { en: "Distance since last charge", de: "Strecke seit letzter Ladung" },
+  powerUsageOfDay: { en: "Energy used today", de: "Energieverbrauch heute" },
+  powerUsageSinceLastCharge: { en: "Energy used since last charge", de: "Energieverbrauch seit letzter Ladung" },
+  realtimePower: { en: "Real-time charging power", de: "Momentane Ladeleistung" },
+  startTime: { en: "Charge start time", de: "Ladestart" },
+  totalBatteryCapacity: { en: "Total battery capacity", de: "Gesamte Batteriekapazit\xE4t" },
+  workingCurrent: { en: "Charging current", de: "Ladestrom" },
+  workingVoltage: { en: "Charging voltage", de: "Ladespannung" }
+};
 function getRuntimeName(id) {
   const name = runtimeNames[id];
   if (!name) {
@@ -942,8 +1035,18 @@ function getRuntimeName(id) {
   }
   return name;
 }
+function getChargingFieldName(id) {
+  const names = chargingFieldNames[id];
+  if (!names) {
+    return Object.fromEntries(supportedLanguages.map((language) => [language, id]));
+  }
+  return Object.fromEntries(
+    supportedLanguages.map((language) => [language, language === "de" ? names.de : names.en])
+  );
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  getChargingFieldName,
   getRuntimeName,
   supportedLanguages
 });
