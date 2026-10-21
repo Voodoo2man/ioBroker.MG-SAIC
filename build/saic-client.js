@@ -885,6 +885,7 @@ class SaicApiClient {
         basicVehicleStatus[field] = value;
         acceptedFields.push(field);
       } else {
+        basicVehicleStatus[field] = void 0;
         ignoredFields.push(field);
       }
     }
@@ -896,11 +897,12 @@ class SaicApiClient {
         for (const [field, value] of Object.entries(wayPointRecord)) {
           if (field === "position" && value && typeof value === "object" && !Array.isArray(value)) {
             for (const [positionField, positionValue] of Object.entries(value)) {
+              const statusField = `gps${positionField[0].toUpperCase()}${positionField.slice(1)}`;
               if (typeof positionValue === "number" && Number.isFinite(positionValue) && positionValue !== -128) {
-                const statusField = `gps${positionField[0].toUpperCase()}${positionField.slice(1)}`;
                 basicVehicleStatus[statusField] = positionValue;
                 acceptedFields.push(statusField);
               } else {
+                basicVehicleStatus[statusField] = void 0;
                 ignoredFields.push(`gpsPosition.wayPoint.position.${positionField}`);
               }
             }
@@ -911,6 +913,8 @@ class SaicApiClient {
             basicVehicleStatus[statusField] = value;
             acceptedFields.push(statusField);
           } else {
+            const statusField = field === "speed" ? "speed" : `gps${field[0].toUpperCase()}${field.slice(1)}`;
+            basicVehicleStatus[statusField] = void 0;
             ignoredFields.push(`gpsPosition.wayPoint.${field}`);
           }
         }

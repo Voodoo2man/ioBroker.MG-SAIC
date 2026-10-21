@@ -686,7 +686,9 @@ class MgSaic extends utils.Adapter {
       if (this.stopping) {
         return;
       }
-      await this.setStateAsync(stateId, { val: (0, import_status_metadata.normalizeVehicleStatusValue)(key, value), ack: true });
+      if (value !== void 0) {
+        await this.setStateAsync(stateId, { val: (0, import_status_metadata.normalizeVehicleStatusValue)(key, value), ack: true });
+      }
       if (this.stopping) {
         return;
       }

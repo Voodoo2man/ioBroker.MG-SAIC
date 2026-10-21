@@ -103,7 +103,7 @@ export interface SaicVehicleStatus {
 	/** Online flag returned by SAIC's cached status endpoint. */
 	onlineStatus?: number;
 	/** Numeric basic vehicle status values, including fields added by SAIC. */
-	basicVehicleStatus: Record<string, number>;
+	basicVehicleStatus: Record<string, number | undefined>;
 }
 
 /** Supported remote actions exposed by this adapter. */
@@ -1172,7 +1172,7 @@ export class SaicApiClient {
 		}
 
 		const rawStatus = envelope.data.basicVehicleStatus as Record<string, unknown>;
-		const basicVehicleStatus: Record<string, number> = {};
+		const basicVehicleStatus: Record<string, number | undefined> = {};
 		const acceptedFields: string[] = [];
 		const ignoredFields: string[] = [];
 		for (const [field, value] of Object.entries(rawStatus)) {
@@ -1180,6 +1180,7 @@ export class SaicApiClient {
 				basicVehicleStatus[field] = value;
 				acceptedFields.push(field);
 			} else {
+				basicVehicleStatus[field] = undefined;
 				ignoredFields.push(field);
 			}
 		}
@@ -1191,15 +1192,16 @@ export class SaicApiClient {
 				for (const [field, value] of Object.entries(wayPointRecord)) {
 					if (field === 'position' && value && typeof value === 'object' && !Array.isArray(value)) {
 						for (const [positionField, positionValue] of Object.entries(value as Record<string, unknown>)) {
+							const statusField = `gps${positionField[0].toUpperCase()}${positionField.slice(1)}`;
 							if (
 								typeof positionValue === 'number' &&
 								Number.isFinite(positionValue) &&
 								positionValue !== -128
 							) {
-								const statusField = `gps${positionField[0].toUpperCase()}${positionField.slice(1)}`;
 								basicVehicleStatus[statusField] = positionValue;
 								acceptedFields.push(statusField);
 							} else {
+								basicVehicleStatus[statusField] = undefined;
 								ignoredFields.push(`gpsPosition.wayPoint.position.${positionField}`);
 							}
 						}
@@ -1211,6 +1213,9 @@ export class SaicApiClient {
 						basicVehicleStatus[statusField] = value;
 						acceptedFields.push(statusField);
 					} else {
+						const statusField =
+							field === 'speed' ? 'speed' : `gps${field[0].toUpperCase()}${field.slice(1)}`;
+						basicVehicleStatus[statusField] = undefined;
 						ignoredFields.push(`gpsPosition.wayPoint.${field}`);
 					}
 				}

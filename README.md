@@ -40,6 +40,7 @@ The adapter is published on npm but has not yet been added to the ioBroker adapt
 - (Voodoo2man) Improved release automation and removed unpublished version metadata.
 - (Voodoo2man) Updated release checks for Node.js 24 and routed retry timers through adapter-managed timers.
 - (Voodoo2man) Added a localized name for the charging port lock status.
+- (Voodoo2man) Created status objects for reported fields even when their current values were unavailable.
 
 Older changelog entries are available in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

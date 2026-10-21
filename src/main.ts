@@ -685,7 +685,7 @@ class MgSaic extends utils.Adapter {
 			return;
 		}
 
-		const values: Record<string, number> = { ...status.basicVehicleStatus };
+		const values: Record<string, number | undefined> = { ...status.basicVehicleStatus };
 		if (status.statusTime !== undefined) {
 			values.statusTime = status.statusTime;
 		}
@@ -734,7 +734,9 @@ class MgSaic extends utils.Adapter {
 			if (this.stopping) {
 				return;
 			}
-			await this.setStateAsync(stateId, { val: normalizeVehicleStatusValue(key, value), ack: true });
+			if (value !== undefined) {
+				await this.setStateAsync(stateId, { val: normalizeVehicleStatusValue(key, value), ack: true });
+			}
 			if (this.stopping) {
 				return;
 			}
