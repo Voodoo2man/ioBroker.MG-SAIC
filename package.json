@@ -1,6 +1,6 @@
 {
   "name": "iobroker.mg-saic",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Connect MG and SAIC vehicles to ioBroker through regional iSmart cloud APIs",
   "author": {
     "name": "Voodoo2man",

@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "mg-saic",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "news": {
+      "0.0.3": {
+        "en": "* Improved release automation, updated Node.js release checks, and removed unpublished version metadata.\n* Added charging data\n* Fixed vehicle datapoint units and roles\n\nOlder changelog entries are available in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).",
+        "de": "* Verbesserte Release-Automation, neue Node.js Release-Checks und unveröffentlichte Metadaten.\n* Ladedaten hinzugefügt\n* Feste Fahrzeugdatengeräte und Rollen\n\nÄltere Changelog-Einträge gibt es in [Changelog_OLD.md] (CHANGELOG_OLD.md).",
+        "ru": "* Улучшена автоматизация релизов, обновлены проверки версий Node.js и удалены неопубликованные метаданные версий.\n* Добавлены данные о зарядке\n* Единицы и роли стационарных точек данных транспортных средств\n\nБолее старые записи в журнале изменений доступны в [Changelog_old.md] (Changelog_old.md).",
+        "pt": "* Melhorou a automação de versões, atualizou as verificações do Node.js e removeu metadados inéditos.\n* Mais dados de carga\n* Unidades e funções fixas do veículo\n\nEntradas antigas do changelog estão disponíveis em [CHANGELOG_OLD.md].",
+        "nl": "* Verbeterde versieautomatisering, bijgewerkte releasecontroles voor Node.js en verwijderde metagegevens van niet-gepubliceerde versies.\n* Oplaadgegevens toegevoegd\n* Datapunteenheden en rollen voor vaste voertuigen\n\nOudere changelog-items zijn beschikbaar in [Changelog_old.md] (Changelog_old.md).",
+        "fr": "* Automatisation des versions, mises à jour de Node.js et suppression des métadonnées des versions inédites.\n* Données de charge ajoutées\n* Unités de données et rôles fixes\n\nLes anciennes entrées du changelog se trouvent dans [CHANGELOG_OLD.md] (CHANGELOG_OLD.md).",
+        "it": "* Migliore automazione dei rilasci, controlli aggiornati di Node.js e metadati inediti rimossi.\n* Dati di ricarica aggiunti\n* Unità e ruoli fissi del veicolo\n\nLe vecchie voci del changelog sono disponibili in [changelog_old.md].",
+        "es": "* Se mejoró la automatización de lanzamientos, se actualizaron las comprobaciones de Node.js y se eliminaron los metadatos de las\n* Datos de carga añadidos\n* Unidades y funciones fijas de puntos de datos del vehículo\n\nLas entradas antiguas de la lista de cambios están en [ChangeLog_old.md] (ChangeLog_old.md).",
+        "pl": "* Ulepszona automatyzacja wydania, zaktualizowane kontrole wydania Node.js i usunięte metadane niepublikowanych wersji.\n* Dodano dane ładowania\n* Stabilne jednostki i role punktów danych pojazdu\n\nStarsze wpisy w dzienniku zmian są dostępne w [Changelog_old.md] (Changelog_old.md).",
+        "uk": "* Покращена автоматизація випуску, оновлена перевірка випуску Node.js та видалені метадані неопублікованих версій.\n* Додані дані зарядки\n* Фіксовані блоки та ролі точок даних транспортного засобу\n\nСтаріші записи журналу змін доступні в [changelog_old.md] (changelog_old.md).",
+        "zh-cn": "* 改进了发布自动化，更新了 Node.js 版本检查，并删除了未发布的版本元数据。\n* 添加了充电数据\n* 修复了车辆数据点单位和角色\n\n[CHANGELOG_OLD.MD] (CHANGELOG_OLD.MD) 中提供了较早的变更日志条目。"
+      },
       "0.0.2": {
         "en": "Added regional iSmart account setup, vehicle status, and supported remote controls.",
         "de": "Regionales iSmart-Konto, Fahrzeugstatus und unterstützte Fernsteuerungen hinzugefügt.",

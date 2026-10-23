@@ -39,7 +39,7 @@ The adapter is published on npm but has not yet been added to the ioBroker adapt
 [![Donate](https://camo.githubusercontent.com/ef8c60305542390406855547e32850909812a73c4abada236de22a6dc88b313f/68747470733a2f2f7777772e70617970616c6f626a656374732e636f6d2f64655f44452f44452f692f62746e2f62746e5f646f6e61746543435f4c472e676966)](https://www.paypal.com/donate/?hosted_button_id=3RJQGSJNRSHUJ)
 
 ## Changelog
-### **WORK IN PROGRESS**
+### 0.0.3 (2026-10-21)
 
 - (Voodoo2man) Improved release automation, updated Node.js release checks, and removed unpublished version metadata.
 - (Voodoo2man) Added charging data
@@ -50,6 +50,10 @@ Older changelog entries are available in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 ### 0.0.2 (2026-10-20)
 
 - (Voodoo2man) Added regional iSmart account setup, vehicle status, and supported remote controls.
+
+### 0.0.1 (2026-10-20)
+
+- (Voodoo2man) Initial Version
 
 ## License
 
